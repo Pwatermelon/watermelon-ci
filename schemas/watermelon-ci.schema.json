@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://watermelon.ci/schemas/watermelon-ci.schema.json",
+  "title": "Watermelon CI Manifest",
+  "type": "object",
+  "required": ["name", "stages", "jobs"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "variables": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "jobs": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/job" }
+    },
+    "publish": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "docker": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["image"],
+            "additionalProperties": false,
+            "properties": {
+              "image": { "type": "string" },
+              "context": { "type": "string", "default": "." },
+              "dockerfile": { "type": "string", "default": "Dockerfile" },
+              "tags": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              }
+            }
+          }
+        },
+        "maven": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deploy": { "type": "boolean", "default": true },
+            "goals": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "job": {
+      "type": "object",
+      "required": ["stage", "script"],
+      "additionalProperties": false,
+      "properties": {
+        "stage": { "type": "string" },
+        "image": { "type": "string" },
+        "script": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "when": {
+          "type": "string",
+          "enum": ["on_success", "manual", "always"]
+        },
+        "environment": { "type": "string" },
+        "allow_failure": { "type": "boolean" },
+        "needs": { "type": "array", "items": { "type": "string" } },
+        "deploy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runtime": {
+              "type": "string",
+              "enum": ["docker", "kubernetes", "compose", "argocd"]
+            },
+            "track": { "type": "boolean", "default": true },
+            "release": { "type": "string" },
+            "image": { "type": "string" },
+            "namespace": { "type": "string" },
+            "replicas": { "type": "integer", "minimum": 1, "default": 1 },
+            "ports": { "type": "array", "items": { "type": "string" } },
+            "secrets": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Vault secret keys from project environment path"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+name: argocd-app
+stages: [build, publish, deploy]
+jobs:
+  build:
+    stage: build
+    image: eclipse-temurin:21
+    script:
+      - ./mvnw -B -DskipTests package
+  deploy-prod:
+    stage: deploy
+    when: manual
+    environment: production
+    image: curlimages/curl:8.10.1
+    script:
+      - echo "GitOps deploy via Watermelon → ArgoCD"
+    deploy:
+      runtime: argocd
+      release: demo-api
+      namespace: demo-prod
+      replicas: 2
+      image: registry.local/watermelon/demo:latest
+      ports: ["8080"]
+      secrets: ["DATABASE_URL", "API_TOKEN"]
+publish:
+  docker:
+    - image: demo
+      tags: ["latest"]

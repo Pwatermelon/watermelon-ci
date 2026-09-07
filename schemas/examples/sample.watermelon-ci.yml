@@ -1,0 +1,31 @@
+name: sample-app
+stages: [build, publish, deploy]
+variables:
+  APP: sample
+jobs:
+  build:
+    stage: build
+    image: eclipse-temurin:21
+    script:
+      - ./mvnw -B -DskipTests package
+  deploy-staging:
+    stage: deploy
+    when: manual
+    environment: staging
+    image: docker:27
+    script:
+      - echo "rolling out staging"
+    deploy:
+      runtime: docker
+      track: true
+      release: sample-staging
+      image: localhost:5000/watermelon/sample:latest
+      ports: ["8080:8080"]
+publish:
+  docker:
+    - image: sample
+      context: .
+      dockerfile: Dockerfile
+      tags: ["latest"]
+  maven:
+    deploy: true

@@ -1,0 +1,129 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: watermelon
+      POSTGRES_USER: watermelon
+      POSTGRES_PASSWORD: watermelon
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U watermelon -d watermelon"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:9
+    environment:
+      USER_UID: 1000
+      USER_GID: 1000
+      FORGEJO__database__DB_TYPE: sqlite3
+      FORGEJO__database__PATH: /data/forgejo.db
+      FORGEJO__server__ROOT_URL: http://localhost:3000/
+      FORGEJO__security__INSTALL_LOCK: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - forgejo-data:/data
+
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    privileged: true
+    user: root
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./deploy/docker/jenkins/casc.yaml:/var/jenkins_home/casc.yaml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/login >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  registry:
+    image: registry:2
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data:/var/lib/registry
+
+  nexus:
+    image: sonatype/nexus3:3.70.1
+    ports:
+      - "8081:8081"
+    volumes:
+      - nexus-data:/nexus-data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+
+  vault:
+    image: hashicorp/vault:1.17
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    command: server -dev
+
+  # Lightweight Argo CD API placeholder for local stacks.
+  # Production: point watermelon.gitops.argo-cd.base-url at a real Argo CD server.
+  argocd:
+    image: argoproj/argocd:v2.12.3
+    command: ["argocd-server", "--insecure", "--dex-server", "", "--repo-server", ""]
+    environment:
+      ARGOCD_SERVER_INSECURE: "true"
+    ports:
+      - "8089:8080"
+    profiles: ["full"]
+
+  watermelon-ci:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: watermelon
+      POSTGRES_USER: watermelon
+      POSTGRES_PASSWORD: watermelon
+      JENKINS_URL: http://jenkins:8080
+      FORGEJO_URL: http://forgejo:3000
+      DOCKER_REGISTRY_URL: http://registry:5000
+      MAVEN_REPO_URL: http://nexus:8081/repository/maven-releases/
+      DOCKER_ENGINE_ENABLED: "false"
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: root
+      GITOPS_DRY_RUN: "true"
+      GITOPS_REPO_PATH: /data/gitops
+      ARGOCD_URL: http://argocd:8080
+    ports:
+      - "8088:8088"
+    volumes:
+      - gitops-data:/data/gitops
+
+volumes:
+  pgdata:
+  forgejo-data:
+  jenkins-home:
+  registry-data:
+  nexus-data:
+  gitops-data:

@@ -1,0 +1,14 @@
+jenkins:
+  systemMessage: "Watermelon CI managed Jenkins — plugins and jobs are controlled by the platform"
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "admin"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  remotingSecurity:
+    enabled: true

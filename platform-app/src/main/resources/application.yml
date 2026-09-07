@@ -1,0 +1,76 @@
+spring:
+  application:
+    name: watermelon-ci
+  datasource:
+    url: jdbc:h2:mem:watermelon;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8088
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+watermelon:
+  jenkins:
+    base-url: ${JENKINS_URL:http://localhost:8080}
+    username: ${JENKINS_USER:admin}
+    api-token: ${JENKINS_TOKEN:changeme}
+  git:
+    base-url: ${FORGEJO_URL:http://localhost:3000}
+    token: ${FORGEJO_TOKEN:changeme}
+  registry:
+    docker:
+      base-url: ${DOCKER_REGISTRY_URL:http://localhost:5000}
+      project: watermelon
+      username: ${DOCKER_REGISTRY_USER:admin}
+      password: ${DOCKER_REGISTRY_PASSWORD:admin}
+    maven:
+      repository-url: ${MAVEN_REPO_URL:http://localhost:8081/repository/maven-releases/}
+      username: ${MAVEN_REPO_USER:admin}
+      password: ${MAVEN_REPO_PASSWORD:admin123}
+  runtime:
+    poll-interval-seconds: 30
+    docker:
+      enabled: ${DOCKER_ENGINE_ENABLED:false}
+      engine-url: ${DOCKER_ENGINE_URL:http://localhost:2375}
+  secrets:
+    vault-addr: ${VAULT_ADDR:http://localhost:8200}
+    token: ${VAULT_TOKEN:root}
+    kv-mount: secret
+    path-prefix: watermelon
+  gitops:
+    dry-run: ${GITOPS_DRY_RUN:true}
+    gitops-repo-url: ${GITOPS_REPO_URL:http://localhost:3000/watermelon/gitops.git}
+    gitops-repo-path: ${GITOPS_REPO_PATH:./.data/gitops}
+    default-cluster: in-cluster
+    argo-cd:
+      base-url: ${ARGOCD_URL:http://localhost:8089}
+      token: ${ARGOCD_TOKEN:changeme}
+      project: default
+
+logging:
+  level:
+    io.watermelon.ci: INFO
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

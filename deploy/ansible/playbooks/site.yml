@@ -1,0 +1,30 @@
+---
+- name: Install Watermelon CI control plane dependencies
+  hosts: watermelon
+  become: true
+  vars:
+    watermelon_compose_dir: /opt/watermelon-ci
+  tasks:
+    - name: Ensure Docker is installed
+      ansible.builtin.package:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+
+    - name: Create install directory
+      ansible.builtin.file:
+        path: "{{ watermelon_compose_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Sync platform files
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../"
+        dest: "{{ watermelon_compose_dir }}/"
+        mode: preserve
+
+    - name: Start stack
+      ansible.builtin.command: docker compose up -d
+      args:
+        chdir: "{{ watermelon_compose_dir }}"

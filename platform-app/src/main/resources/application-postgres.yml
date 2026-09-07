@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:watermelon}
+    username: ${POSTGRES_USER:watermelon}
+    password: ${POSTGRES_PASSWORD:watermelon}
+    driver-class-name: org.postgresql.Driver

@@ -1,0 +1,39 @@
+# Build
+target/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime / local
+.env
+.env.*
+!.env.example
+*.log
+logs/
+.tmp/
+.data/
+docker-data/
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+console-ui/node_modules/
+console-ui/dist/
+
