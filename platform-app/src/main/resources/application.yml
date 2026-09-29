@@ -28,10 +28,17 @@ management:
         include: health,info,metrics
 
 watermelon:
+  karbyz:
+    home: ${WATERMELON_KARBYZ_HOME:karbyz}
+    python: ${WATERMELON_KARBYZ_PYTHON:python3}
+  demo:
+    enabled: true
+    seed-on-startup: true
   jenkins:
     base-url: ${JENKINS_URL:http://localhost:8080}
     username: ${JENKINS_USER:admin}
     api-token: ${JENKINS_TOKEN:changeme}
+    soft-fail: true
   git:
     base-url: ${FORGEJO_URL:http://localhost:3000}
     token: ${FORGEJO_TOKEN:changeme}
@@ -55,6 +62,7 @@ watermelon:
     token: ${VAULT_TOKEN:root}
     kv-mount: secret
     path-prefix: watermelon
+    memory-fallback: true
   gitops:
     dry-run: ${GITOPS_DRY_RUN:true}
     gitops-repo-url: ${GITOPS_REPO_URL:http://localhost:3000/watermelon/gitops.git}

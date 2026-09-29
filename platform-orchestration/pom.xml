@@ -41,6 +41,10 @@
         </dependency>
         <dependency>
             <groupId>io.watermelon.ci</groupId>
+            <artifactId>platform-fleet</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.watermelon.ci</groupId>
             <artifactId>platform-secrets</artifactId>
         </dependency>
         <dependency>

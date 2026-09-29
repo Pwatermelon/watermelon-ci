@@ -3,10 +3,11 @@ package io.watermelon.ci.domain.gitops;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "gitops_applications")
@@ -42,7 +43,8 @@ public class GitOpsApplication {
     @Column(nullable = false, length = 32)
     private String healthStatus;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(columnDefinition = "text")
     private String lastRenderedYaml;
 
     @Column(nullable = false)

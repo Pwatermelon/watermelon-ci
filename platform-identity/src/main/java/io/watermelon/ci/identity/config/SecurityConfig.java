@@ -17,24 +17,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/actuator/health",
-                                "/actuator/info",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/api/v1/runtime/agent/**",
-                                "/api/v1/fleet/**/join",
-                                "/api/v1/fleet/**/heartbeat",
-                                "/",
-                                "/index.html",
-                                "/assets/**",
-                                "/console/**",
-                                "/favicon.ico")
-                        .permitAll()
-                        .anyRequest()
-                        .permitAll())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .httpBasic(Customizer.withDefaults());
         return http.build();
     }

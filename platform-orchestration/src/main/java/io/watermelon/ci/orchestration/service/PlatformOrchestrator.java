@@ -77,6 +77,22 @@ public class PlatformOrchestrator {
         return projectRepository.findById(projectId).orElseThrow(() -> new NotFoundException("project not found"));
     }
 
+    @Transactional(readOnly = true)
+    public List<Organization> listOrganizations() {
+        return organizationRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Organization getOrganization(UUID organizationId) {
+        return organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new NotFoundException("organization not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Project> listProjects(UUID organizationId) {
+        return projectRepository.findByOrganizationId(organizationId);
+    }
+
     @Transactional
     public PipelineRun startPipeline(UUID projectId, String ref, String commitSha, String manifestYaml) {
         Project project = requireProject(projectId);

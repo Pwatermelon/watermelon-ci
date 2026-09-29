@@ -1,0 +1,55 @@
+name: storefront
+variables:
+  APP: storefront
+  REGISTRY: registry.local/watermelon
+stages: [checkout, build, test, publish, deploy]
+jobs:
+  checkout:
+    stage: checkout
+    image: alpine/git:2.45.2
+    script:
+      - git clone --branch main git@forgejo.local:watermelon-demo/storefront.git .
+      - git rev-parse --short HEAD
+  build:
+    stage: build
+    image: eclipse-temurin:21
+    needs: [checkout]
+    script:
+      - ./mvnw -B -DskipTests package
+  test:
+    stage: test
+    image: eclipse-temurin:21
+    needs: [build]
+    script:
+      - ./mvnw -B test
+  publish-image:
+    stage: publish
+    image: docker:27
+    needs: [test]
+    script:
+      - docker build -t $REGISTRY/$APP:1.0.0 -t $REGISTRY/$APP:latest .
+      - docker push $REGISTRY/$APP:1.0.0
+      - docker push $REGISTRY/$APP:latest
+  deploy-prod:
+    stage: deploy
+    when: manual
+    environment: production
+    image: curlimages/curl:8.10.1
+    needs: [publish-image]
+    script:
+      - echo "GitOps sync Storefront → ArgoCD"
+    deploy:
+      runtime: argocd
+      track: true
+      release: storefront
+      namespace: storefront-prod
+      replicas: 2
+      image: registry.local/watermelon/storefront:1.0.0
+      ports: ["8080"]
+      secrets: ["DATABASE_URL", "API_TOKEN"]
+publish:
+  docker:
+    - image: storefront
+      tags: ["1.0.0", "latest"]
+  maven:
+    deploy: true

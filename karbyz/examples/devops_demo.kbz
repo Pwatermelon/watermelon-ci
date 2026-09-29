@@ -1,0 +1,40 @@
+# Манифест пайплайна Storefront (Watermelon CI · синтаксис Карбыз)
+# Эквивалент watermelon-ci.yml: git → build → test → registry → secrets → deploy
+
+жыелма storefront ::
+
+  суз app <- "storefront"
+  суз registry <- "registry.local/watermelon"
+
+  этап "checkout" ::
+    башкар "git clone --branch main git@forgejo.local:watermelon-demo/storefront.git ."
+    башкар "git rev-parse --short HEAD"
+  ахыр
+
+  этап "build" ::
+    башкар "./mvnw -B -DskipTests package"
+    чыгар ("собрали", app)
+  ахыр
+
+  этап "test" ::
+    башкар "./mvnw -B test"
+  ахыр
+
+  этап "publish" ::
+    башкар "docker build -t registry.local/watermelon/storefront:1.0.0 ."
+    башкар "docker push registry.local/watermelon/storefront:1.0.0"
+    башкар "docker push registry.local/watermelon/storefront:latest"
+    чыгар ("образ в registry:", registry)
+  ахыр
+
+  сервер "prod-node" ::
+    башкар "echo inject Vault secrets DATABASE_URL API_TOKEN"
+    башкар "echo ArgoCD sync storefront-prod"
+  ахыр
+
+  этап "deploy" ::
+    башкар "echo GitOps deploy storefront"
+    чыгар ("раскатка", app)
+  ахыр
+
+ахыр жыелма.

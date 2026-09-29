@@ -25,7 +25,7 @@ create table gitops_applications (
     image_ref varchar(500),
     sync_status varchar(32) not null,
     health_status varchar(32) not null,
-    last_rendered_yaml clob,
+    last_rendered_yaml text,
     created_at timestamp with time zone not null,
     updated_at timestamp with time zone,
     unique (project_id, environment, release_name)

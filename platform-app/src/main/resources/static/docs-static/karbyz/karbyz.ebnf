@@ -1,0 +1,52 @@
+(* Karbyz 1.0 — нормативная РБНФ. Согласована с транслятором. См. docs/SPECIFICATION.md *)
+
+Program     = "жыелма" Ident "::" { DeclOrStmt } "ахыр" "жыелма" "." .
+DeclOrStmt  = VarDecl | FuncDecl | Statement .
+
+VarDecl     = Type Ident [ "<-" Expr ] .
+Type        = "сан" | "суз" | "тезма" .
+
+FuncDecl    = "эшлама" Ident "(" [ Param { "," Param } ] ")" Block .
+Param       = Type Ident .
+
+Statement   = VarDecl | Assign | IfStmt | WhileStmt | ForStmt
+            | ReturnStmt | CallStmt | PrintStmt | InputStmt
+            | StageStmt | RunStmt | HostStmt .
+
+Block       = "::" { Statement } "ахыр" .
+Assign      = Ident [ "[" Expr "]" ] "<-" Expr .
+
+IfStmt      = "агар" "(" Expr ")" "булса" "::" { Statement }
+              [ "юкса" "::" { Statement } ] "ахыр" .
+WhileStmt   = "шулай" "(" Expr ")" "вакыт" Block .
+ForStmt     = "очен" "(" ForInit "да" Expr "кадак" ForStep ")" Block .
+ForInit     = [ Type Ident "<-" Expr | Ident "<-" Expr ] .
+ForStep     = [ Ident "<-" Expr ] .
+
+ReturnStmt  = "кайтар" [ Expr ] .
+CallStmt    = Ident "(" [ Expr { "," Expr } ] ")" .
+PrintStmt   = "чыгар" "(" [ Expr { "," Expr } ] ")" .
+InputStmt   = "керт" "(" Type Ident ")" .
+StageStmt   = "этап" StringLit Block .
+RunStmt     = "башкар" Expr .
+HostStmt    = "сервер" StringLit Block .
+
+Expr        = OrExpr .
+OrExpr      = AndExpr { ( "яки" | "||" ) AndExpr } .
+AndExpr     = NotExpr { ( "хам" | "&&" ) NotExpr } .
+NotExpr     = ( "тугел" | "!" ) NotExpr | RelExpr .
+RelExpr     = AddExpr { ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) AddExpr } .
+AddExpr     = MulExpr { ( "+" | "-" ) MulExpr } .
+MulExpr     = Unary { ( "*" | "/" | "%" ) Unary } .
+Unary       = ( "+" | "-" ) Unary | Primary .
+Primary     = Ident [ "(" [ Expr { "," Expr } ] ")" | "[" Expr "]" ]
+            | Number | StringLit | "дорес" | "ялган"
+            | "[" [ Expr { "," Expr } ] "]"
+            | "(" Expr ")"
+            | "озынлык" "(" Expr ")" .
+
+Ident       = Letter { Letter | Digit | "_" } .
+Number      = Digit { Digit } .
+StringLit   = '"' { Char } '"' .
+Letter      = (* Unicode Letter *) .
+Digit       = "0" … "9" .

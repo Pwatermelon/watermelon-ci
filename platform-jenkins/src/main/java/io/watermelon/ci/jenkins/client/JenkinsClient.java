@@ -50,6 +50,10 @@ public class JenkinsClient {
                 restTemplate.exchange(createUrl, HttpMethod.POST, authEntity(configXml, MediaType.APPLICATION_XML), Void.class);
             }
         } catch (RestClientException ex) {
+            if (properties.isSoftFail()) {
+                log.warn("Jenkins upsert soft-failed for {}: {}", jobName, ex.getMessage());
+                return;
+            }
             throw new PlatformException(ErrorCode.JENKINS_ERROR, "failed to upsert Jenkins job: " + ex.getMessage(), ex);
         }
     }
@@ -64,6 +68,10 @@ public class JenkinsClient {
             log.info("Triggered Jenkins job {} queue={}", jobName, queue);
             return estimateBuildNumber(jobName);
         } catch (RestClientException ex) {
+            if (properties.isSoftFail()) {
+                log.warn("Jenkins trigger soft-failed for {}: {}", jobName, ex.getMessage());
+                return 1;
+            }
             throw new PlatformException(ErrorCode.JENKINS_ERROR, "failed to trigger build: " + ex.getMessage(), ex);
         }
     }

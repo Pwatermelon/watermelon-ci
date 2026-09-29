@@ -9,6 +9,8 @@ public class JenkinsProperties {
     private String username = "admin";
     private String apiToken = "changeme";
     private String crumbIssuerPath = "/crumbIssuer/api/json";
+    /** When true, Jenkins API failures are logged and ignored (MVP demo mode). */
+    private boolean softFail = true;
 
     public String getBaseUrl() { return baseUrl; }
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
@@ -18,4 +20,6 @@ public class JenkinsProperties {
     public void setApiToken(String apiToken) { this.apiToken = apiToken; }
     public String getCrumbIssuerPath() { return crumbIssuerPath; }
     public void setCrumbIssuerPath(String crumbIssuerPath) { this.crumbIssuerPath = crumbIssuerPath; }
+    public boolean isSoftFail() { return softFail; }
+    public void setSoftFail(boolean softFail) { this.softFail = softFail; }
 }

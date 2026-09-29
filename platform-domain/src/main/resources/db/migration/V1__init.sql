@@ -44,8 +44,8 @@ create table pipeline_runs (
     status varchar(32) not null,
     jenkins_job_name varchar(500),
     jenkins_build_number integer,
-    manifest_yaml clob not null,
-    compiled_jenkinsfile clob,
+    manifest_yaml text not null,
+    compiled_jenkinsfile text,
     created_at timestamp with time zone not null,
     finished_at timestamp with time zone,
     unique (project_id, number)
@@ -56,7 +56,7 @@ create table issues (
     project_id uuid not null references projects(id),
     number bigint not null,
     title varchar(300) not null,
-    body clob,
+    body text,
     status varchar(32) not null,
     assignee_subject varchar(200),
     created_at timestamp with time zone not null,
@@ -103,6 +103,6 @@ create table audit_events (
     project_id uuid,
     actor varchar(200) not null,
     action varchar(100) not null,
-    details clob,
+    details text,
     created_at timestamp with time zone not null
 );

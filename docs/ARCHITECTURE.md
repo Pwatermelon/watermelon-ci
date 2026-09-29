@@ -29,7 +29,8 @@ Labels used for discovery:
 
 Source of truth: `platform-manifest/src/main/resources/schemas/watermelon-ci.schema.json`
 
-Compile path: YAML → Jackson model → semantic checks → Declarative Jenkinsfile.
+Compile path: YAML **или** Карбыз (.kbz) → единая модель пайплайна → Declarative Jenkinsfile.
+Карбыз — альтернативный синтаксис того же манифеста, не генератор YAML.
 
 
 ## Fleet admin console

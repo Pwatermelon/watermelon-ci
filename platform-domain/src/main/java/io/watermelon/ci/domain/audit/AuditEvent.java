@@ -4,10 +4,11 @@ package io.watermelon.ci.domain.audit;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "audit_events")
@@ -28,7 +29,8 @@ public class AuditEvent {
     @Column(nullable = false, length = 100)
     private String action;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(columnDefinition = "text")
     private String details;
 
     @Column(nullable = false)

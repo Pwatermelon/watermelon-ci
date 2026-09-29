@@ -10,6 +10,7 @@ import static io.watermelon.ci.api.dto.ApiDtos.StartPipelineRequest;
 import io.watermelon.ci.domain.organization.Organization;
 import io.watermelon.ci.domain.pipeline.PipelineRun;
 import io.watermelon.ci.domain.project.Project;
+import io.watermelon.ci.orchestration.service.DemoBootstrapService;
 import io.watermelon.ci.orchestration.service.PlatformOrchestrator;
 import io.watermelon.ci.runtime.model.DeploymentView;
 import jakarta.validation.Valid;
@@ -30,9 +31,29 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlatformController {
 
     private final PlatformOrchestrator orchestrator;
+    private final DemoBootstrapService demoBootstrapService;
 
-    public PlatformController(PlatformOrchestrator orchestrator) {
+    public PlatformController(PlatformOrchestrator orchestrator, DemoBootstrapService demoBootstrapService) {
         this.orchestrator = orchestrator;
+        this.demoBootstrapService = demoBootstrapService;
+    }
+
+    @PostMapping("/demo/seed")
+    public Map<String, Object> seedDemo() {
+        return demoBootstrapService.seed();
+    }
+
+    @GetMapping("/organizations")
+    public List<OrganizationResponse> listOrgs() {
+        return orchestrator.listOrganizations().stream()
+                .map(o -> new OrganizationResponse(o.getId(), o.getSlug(), o.getName()))
+                .toList();
+    }
+
+    @GetMapping("/organizations/{organizationId}")
+    public OrganizationResponse getOrg(@PathVariable UUID organizationId) {
+        Organization org = orchestrator.getOrganization(organizationId);
+        return new OrganizationResponse(org.getId(), org.getSlug(), org.getName());
     }
 
     @PostMapping("/organizations")
@@ -40,6 +61,21 @@ public class PlatformController {
     public OrganizationResponse createOrg(@Valid @RequestBody CreateOrganizationRequest request) {
         Organization org = orchestrator.createOrganization(request.name());
         return new OrganizationResponse(org.getId(), org.getSlug(), org.getName());
+    }
+
+    @GetMapping("/organizations/{organizationId}/projects")
+    public List<ProjectResponse> listProjects(@PathVariable UUID organizationId) {
+        return orchestrator.listProjects(organizationId).stream()
+                .map(p -> new ProjectResponse(
+                        p.getId(), p.getOrganizationId(), p.getSlug(), p.getName(), p.getDescription()))
+                .toList();
+    }
+
+    @GetMapping("/projects/{projectId}")
+    public ProjectResponse getProject(@PathVariable UUID projectId) {
+        Project p = orchestrator.requireProject(projectId);
+        return new ProjectResponse(
+                p.getId(), p.getOrganizationId(), p.getSlug(), p.getName(), p.getDescription());
     }
 
     @PostMapping("/organizations/{organizationId}/projects")
