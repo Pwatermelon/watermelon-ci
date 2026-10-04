@@ -230,12 +230,11 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
       {embedded ? (
         <div className="topbar">
           <div>
-            <h1>Спецификация Карбыз 1.2</h1>
-            <p>Нормативный текст: лексика, типы, отказы, РБНФ, проходы транслятора.</p>
+            <h1>Спецификация Карбыз</h1>
+            <p>Документ 1.3 · Cond, типы операций, РБНФ, проходы транслятора</p>
           </div>
           <div className="btn-row">
-            <Link className="btn primary" to="/app/ide">IDE</Link>
-            <Link className="btn ghost" to="/app/studio">Storefront</Link>
+            <Link className="btn" to="/app/ide">IDE</Link>
           </div>
         </div>
       ) : (
@@ -245,7 +244,7 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
             <span className="logo">Water<span>melon</span></span>
           </Link>
           <div className="docs-top-meta">
-            <span className="badge ok">Karbyz 1.2</span>
+            <span className="badge ok">1.3</span>
             <Link className="btn ghost" to="/app/ide">IDE</Link>
             <Link className="btn ghost" to="/">На главную</Link>
           </div>

@@ -1,62 +1,66 @@
 # Watermelon CI
 
-Продаваемый MVP корпоративной CI/CD-платформы: манифесты как в GitLab CI, Vault-секреты, деплой через ArgoCD без Helm, fleet-консоль и красивый product UI.
+Корпоративная CI/CD-платформа: манифесты (YAML или **Карбыз**), Vault-секреты, GitOps без Helm, fleet-консоль.
 
-## За 60 секунд
+## Быстрый старт
 
 ```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+# UI → static
+cd console-ui && npm install && npm run build
+cp -R dist/. ../platform-app/src/main/resources/static/
+cp -R public/docs-static ../platform-app/src/main/resources/static/
+
+# Backend
+cd ..
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home   # macOS arm, при необходимости
 mvn -q -pl platform-app -am package -DskipTests
 java -jar platform-app/target/platform-app-0.1.0-SNAPSHOT.jar
 ```
 
-Открой [http://localhost:8088](http://localhost:8088) → **Launch demo**.
+Открой [http://localhost:8088](http://localhost:8088) → **Демо**.
 
-Демо сразу поднимает org `watermelon-demo`, проект `storefront`, pipeline, secrets, fleet cluster. Jenkins/Vault не обязательны (soft-fail + memory fallback).
-
-## Что умеет MVP
-
-| Возможность | Как попробовать в UI |
-|-------------|----------------------|
-| YAML или Карбыз → Jenkinsfile | Manifest studio / Project → Pipelines |
-| Запуск pipeline | Project → Run pipeline |
-| Secrets (Vault) | Project → Secrets |
-| GitOps без Helm | Project → GitOps → Deploy via ArgoCD |
-| Issues | Project → Issues |
-| Artifact catalog | Project → Artifacts |
-| Fleet clusters | Fleet |
-
-## Стек
-
-Java 21 · Spring Boot 3.5 · React (Vite) · H2/Postgres · Flyway · OpenAPI
-
-Модули: `platform-common` … `platform-app` + `console-ui` + `platform-secrets` + `platform-gitops` + `platform-fleet`.
-
-## Dev UI
+Либо полный стек:
 
 ```bash
-cd console-ui && npm install && npm run build
-cp -R dist/. ../platform-app/src/main/resources/static/
+docker compose up -d --build watermelon-ci postgres vault
 ```
 
-Или `npm run dev` (proxy на `:8088`).
+Консоль: `:8088`. Демо создаёт org `watermelon-demo`, проект `storefront`. Jenkins/Vault не обязательны (`soft-fail`, `memory-fallback`).
 
-## Язык Карбыз
+## Консоль
 
-Манифест Watermelon CI на татарском синтаксисе (эквивалент YAML). Всё в [`karbyz/`](karbyz/). В UI — `/docs/karbyz` и вкладка Карбыз в студии манифестов.
+| Раздел | URL | Назначение |
+|--------|-----|------------|
+| Storefront | `/app/studio` | гайд git→build→registry→secrets→deploy; YAML и Карбыз |
+| Карбыз IDE | `/app/ide` | редактор `.kbz`, Run / IR / Compile → Jenkinsfile |
+| Спецификация | `/app/docs` | нормативный текст языка (1.3) |
+| Проекты / Флот | `/app/projects`, `/app/fleet` | пайплайны, секреты, GitOps, контейнеры |
+
+## Карбыз
+
+Татарский синтаксис того же манифеста Watermelon CI, что YAML. Исходники и спека: [`karbyz/`](karbyz/).
 
 ```bash
 python3 karbyz/run.py test
-python3 karbyz/run.py examples/all_constructs.kbz
-python3 karbyz/run.py examples/devops_demo.kbz --as-yaml
+python3 karbyz/run.py karbyz/examples/hello.kbz
+python3 karbyz/run.py karbyz/examples/devops_demo.kbz --as-yaml
 ```
 
-## Compose (полная инфра)
+API рантайма IDE: `POST /api/v1/karbyz/run`, `POST /api/v1/karbyz/compile`.
+
+## Стек
+
+Java 21 · Spring Boot 3.5 · React (Vite) · H2/Postgres · Flyway · OpenAPI · Python 3 (транслятор Карбыз в образе)
+
+## Compose
 
 ```bash
 docker compose up -d postgres vault registry
 # опционально: jenkins forgejo nexus
+# полный профиль: docker compose --profile full up -d
 ```
+
+Образ `watermelon-ci` включает JRE + `python3` + `/opt/karbyz`.
 
 ## Конфиг демо
 
@@ -65,7 +69,12 @@ watermelon:
   demo:
     enabled: true
     seed-on-startup: true
+  karbyz:
+    home: karbyz          # в Docker: /opt/karbyz
+    python: python3
   jenkins.soft-fail: true
   secrets.memory-fallback: true
   gitops.dry-run: true
 ```
+
+Архитектура: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).

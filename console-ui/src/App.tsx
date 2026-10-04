@@ -96,7 +96,7 @@ function Landing() {
           <p className="brand-lockup rise">Water<span>melon</span></p>
           <h1 className="rise rise-delay-1">Платформа CI/CD без разрозненных инструментов</h1>
           <p className="rise rise-delay-2">
-            Манифесты, секреты, GitOps и управление флотом — одна консоль для поставки и эксплуатации.
+            Манифесты (YAML / Карбыз), секреты, GitOps и флот — одна консоль.
           </p>
           <div className="cta-row rise rise-delay-3">
             <button className="btn primary" onClick={() => enter(true)} disabled={busy}>
@@ -150,10 +150,10 @@ function Shell({ orgId, children }: { orgId: string; children: React.ReactNode }
         </button>
         <nav className="nav">
           <NavLink to="/app" end>Обзор</NavLink>
-          <NavLink to="/app/projects">Проекты</NavLink>
           <NavLink to="/app/studio">Storefront</NavLink>
           <NavLink to="/app/ide">Карбыз IDE</NavLink>
           <NavLink to="/app/docs">Спецификация</NavLink>
+          <NavLink to="/app/projects">Проекты</NavLink>
           <NavLink to="/app/fleet">Флот</NavLink>
         </nav>
         <div className="side-foot">
@@ -172,8 +172,6 @@ function Shell({ orgId, children }: { orgId: string; children: React.ReactNode }
             <span className="muted mono chrome-org">{orgId.slice(0, 8)}</span>
           </div>
           <div className="btn-row">
-            <button className="btn ghost btn-sm" onClick={() => navigate('/app/ide')}>Карбыз IDE</button>
-            <button className="btn ghost btn-sm" onClick={() => navigate('/app/docs')}>Спека</button>
             <button className="btn primary btn-sm" onClick={() => navigate('/app/studio')}>Storefront</button>
           </div>
         </header>

@@ -1,21 +1,22 @@
 # Карбыз (Karbyz)
 
-Манифест пайплайна Watermelon CI на татарском синтаксисе — тот же смысл, что YAML-форма, другая запись.
+Манифест пайплайна Watermelon CI на татарском синтаксисе — тот же смысл, что YAML-форма.
 
 ```
 karbyz/
-  docs/           # спецификация и словарь
-  grammar/        # нормативная РБНФ
-  examples/       # референсные манифесты / сценарии (.kbz)
-  kabak/          # разбор → модель · исполнение · YAML-эквивалент для компилятора
+  docs/           SPECIFICATION.md · KEYWORDS.md
+  grammar/        karbyz.ebnf
+  examples/       .kbz
+  kabak/          лексер · парсер · исполнение · IR
   tests/
   run.py
 ```
 
-В продукте: `/docs/karbyz`, в демо — **Манифесты → Карбыз** (Compile → Jenkinsfile, как у YAML).
+Спека в консоли: `/app/docs` (текст из `docs/SPECIFICATION.md`).  
+IDE: `/app/ide`. Storefront: `/app/studio`.
 
 ```bash
 python3 karbyz/run.py test
 python3 karbyz/run.py examples/all_constructs.kbz
-python3 karbyz/run.py examples/devops_demo.kbz --as-yaml   # тот же манифест в YAML-записи
+python3 karbyz/run.py examples/devops_demo.kbz --as-yaml
 ```

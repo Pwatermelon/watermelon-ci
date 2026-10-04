@@ -37,3 +37,10 @@ docker-data/
 console-ui/node_modules/
 console-ui/dist/
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+

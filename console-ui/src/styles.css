@@ -942,7 +942,9 @@ button { appearance: none; }
 .docs-embedded .docs-toc {
   top: calc(var(--chrome-h) + 1rem);
 }
-.spec-article { max-width: 78ch; }
+.spec-article { max-width: min(920px, 100%); }
+.docs-embedded .tabs,
+.docs .tabs { margin: 0 0 1rem; }
 .spec-md h1 {
   margin: 0.2rem 0 1rem;
   font-size: clamp(1.6rem, 3vw, 2.2rem);
