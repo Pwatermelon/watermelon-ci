@@ -1,53 +1,38 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   api, getStoredOrgId, setGitOwner, setStoredOrgId, setStoredProjectId,
 } from '../lib/api'
-import { clearSession, getAccessToken, handleAuthCallback, isAuthEnabled, loginWithKeycloak } from '../lib/auth'
+import { clearSession, handleAuthCallback, isAuthEnabled, loginWithKeycloak } from '../lib/auth'
 
-function hasSession() {
-  if (isAuthEnabled()) return Boolean(getAccessToken())
-  return Boolean(getStoredOrgId())
+export async function bootDemoWorkspace() {
+  const demo = await api.seedDemo()
+  setStoredOrgId(demo.organizationId)
+  setStoredProjectId(demo.projectId)
+  setGitOwner(demo.gitOwner || demo.organizationSlug || 'watermelon-demo')
+  return demo
 }
 
 export default function LandingPage() {
-  const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const authOn = isAuthEnabled()
 
-  useEffect(() => {
-    // Drop stale workspace left without JWT
-    if (authOn && getStoredOrgId() && !getAccessToken()) {
-      clearSession()
-    }
-    if (hasSession() && getStoredOrgId()) {
-      navigate('/app', { replace: true })
-    }
-  }, [navigate, authOn])
-
-  const enterDemo = async () => {
+  const enter = async () => {
     setBusy(true)
     setError(null)
     try {
-      const demo = await api.seedDemo()
-      setStoredOrgId(demo.organizationId)
-      setStoredProjectId(demo.projectId)
-      setGitOwner(demo.gitOwner || demo.organizationSlug || 'watermelon-demo')
-      navigate('/app')
+      if (isAuthEnabled()) {
+        await loginWithKeycloak()
+        return
+      }
+      localStorage.removeItem('wm.accessToken')
+      localStorage.removeItem('wm.refreshToken')
+      await bootDemoWorkspace()
+      window.location.href = '/app'
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
-    } finally {
       setBusy(false)
     }
-  }
-
-  const primary = () => {
-    if (authOn) {
-      loginWithKeycloak()
-      return
-    }
-    void enterDemo()
   }
 
   return (
@@ -61,8 +46,8 @@ export default function LandingPage() {
             Репозитории, пайплайны, хосты и сервисы — одна панель.
           </p>
           <div className="cta-row rise rise-delay-3">
-            <button className="btn primary" type="button" disabled={busy} onClick={primary}>
-              {busy ? 'Загрузка…' : authOn ? 'Войти' : 'Открыть демо'}
+            <button className="btn primary" type="button" disabled={busy} onClick={() => void enter()}>
+              {busy ? 'Загрузка…' : 'Открыть консоль'}
             </button>
           </div>
           <p className="landing-aside rise rise-delay-3">
@@ -76,26 +61,30 @@ export default function LandingPage() {
 }
 
 export function AuthCallbackPage() {
-  const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
+  const [phase, setPhase] = useState('Обмен кода…')
+  const ran = useRef(false)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
+    if (ran.current) return
+    ran.current = true
+    const code = new URLSearchParams(window.location.search).get('code')
     if (!code) {
       setError('Нет code в callback')
       return
     }
-    handleAuthCallback(code)
-      .then(async () => {
-        const demo = await api.seedDemo()
-        setStoredOrgId(demo.organizationId)
-        setStoredProjectId(demo.projectId)
-        setGitOwner(demo.gitOwner || 'watermelon-demo')
-        navigate('/app', { replace: true })
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-  }, [navigate])
+    void (async () => {
+      try {
+        setPhase('Обмен кода…')
+        await handleAuthCallback(code)
+        setPhase('Создаём workspace…')
+        await bootDemoWorkspace()
+        window.location.href = '/app'
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      }
+    })()
+  }, [])
 
   return (
     <div className="landing landing-hero-solo" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
@@ -103,12 +92,10 @@ export function AuthCallbackPage() {
         {error ? (
           <>
             <div className="error">{error}</div>
-            <button className="btn primary" type="button" style={{ marginTop: 12 }} onClick={() => loginWithKeycloak()}>
-              Войти снова
-            </button>
+            <a className="btn primary" href="/" style={{ marginTop: 12, display: 'inline-block' }}>На главную</a>
           </>
         ) : (
-          <p className="muted">Вход…</p>
+          <p className="muted">{phase}</p>
         )}
       </div>
     </div>
@@ -116,57 +103,37 @@ export function AuthCallbackPage() {
 }
 
 export function RequireWorkspace({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate()
-  const orgId = getStoredOrgId()
-  const token = getAccessToken()
-  const authOn = isAuthEnabled()
-
-  useEffect(() => {
-    if (authOn && !token) {
-      clearSession()
-      navigate('/', { replace: true })
-      return
-    }
-    if (!orgId && authOn && token) {
-      // BootWorkspace below
-      return
-    }
-    if (!orgId && !authOn) {
-      navigate('/', { replace: true })
-    }
-  }, [orgId, token, authOn, navigate])
-
-  if (authOn && !token) return null
-  if (!orgId && authOn && token) return <BootWorkspace />
-  if (!orgId) return null
-  return <>{children}</>
-}
-
-function BootWorkspace() {
-  const navigate = useNavigate()
+  const [ready, setReady] = useState(() => Boolean(getStoredOrgId()))
   const [error, setError] = useState<string | null>(null)
+  const ran = useRef(false)
 
   useEffect(() => {
-    api.seedDemo()
-      .then((demo) => {
-        setStoredOrgId(demo.organizationId)
-        setStoredProjectId(demo.projectId)
-        setGitOwner(demo.gitOwner || 'watermelon-demo')
-        navigate('/app', { replace: true })
-      })
+    if (ready || ran.current) return
+    ran.current = true
+    void bootDemoWorkspace()
+      .then(() => setReady(true))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-  }, [navigate])
+  }, [ready])
 
-  return (
-    <div className="panel">
-      {error ? <div className="error">{error}</div> : <p className="muted">Готовим workspace…</p>}
-    </div>
-  )
+  if (error) {
+    return (
+      <div className="panel">
+        <div className="error">{error}</div>
+        <a className="btn primary" href="/" style={{ marginTop: 12, display: 'inline-block' }} onClick={() => clearSession()}>
+          На главную
+        </a>
+      </div>
+    )
+  }
+  if (!ready) {
+    return <div className="panel"><p className="muted">Готовим workspace…</p></div>
+  }
+  return <>{children}</>
 }
 
 export function useWorkspace() {
   return {
     orgId: getStoredOrgId() || '',
-    projectId: getStoredProjectId() || '',
+    projectId: localStorage.getItem('wm.projectId') || '',
   }
 }

@@ -7,8 +7,6 @@ import LandingPage, { AuthCallbackPage, RequireWorkspace } from './pages/Landing
 import PipelinesPage from './pages/PipelinesPage'
 import ReposPage, { RepoEditorPage } from './pages/ReposPage'
 import ServicesPage from './pages/ServicesPage'
-import { isAuthEnabled, loginWithKeycloak } from './lib/auth'
-import { useEffect } from 'react'
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -18,23 +16,11 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function LoginRedirect() {
-  useEffect(() => {
-    if (isAuthEnabled()) void loginWithKeycloak()
-  }, [])
-  if (!isAuthEnabled()) return <Navigate to="/" replace />
-  return (
-    <div className="landing" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
-      <p className="muted">Переход к входу…</p>
-    </div>
-  )
-}
-
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginRedirect />} />
+      <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/app" element={<Shell><DashboardPage /></Shell>} />
       <Route path="/app/repos" element={<Shell><ReposPage /></Shell>} />
@@ -42,12 +28,8 @@ export default function App() {
       <Route path="/app/pipelines" element={<Shell><PipelinesPage /></Shell>} />
       <Route path="/app/hosts" element={<Shell><HostsPage /></Shell>} />
       <Route path="/app/services" element={<Shell><ServicesPage /></Shell>} />
-      <Route path="/app/docs" element={<AppShell><DocsPage embedded /></AppShell>} />
-      <Route path="/app/studio" element={<Navigate to="/app/pipelines" replace />} />
-      <Route path="/app/ide" element={<Navigate to="/app/pipelines" replace />} />
-      <Route path="/app/fleet" element={<Navigate to="/app/hosts" replace />} />
-      <Route path="/app/projects" element={<Navigate to="/app" replace />} />
-      <Route path="/docs/karbyz" element={<Navigate to="/app/docs" replace />} />
+      <Route path="/app/docs" element={<DocsPage />} />
+      <Route path="/app/*" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

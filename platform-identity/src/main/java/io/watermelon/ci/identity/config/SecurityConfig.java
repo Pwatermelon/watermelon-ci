@@ -37,7 +37,8 @@ public class SecurityConfig {
                                     "/auth/**",
                                     "/login",
                                     "/app",
-                                    "/app/**")
+                                    "/app/**",
+                                    "/api/v1/auth/**")
                             .permitAll()
                             .requestMatchers("/api/**")
                             .authenticated()

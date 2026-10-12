@@ -15,36 +15,32 @@ public class ConsoleWebConfig implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addViewController("/").setViewName("forward:/index.html");
+        registry.addViewController("/login").setViewName("forward:/index.html");
+        registry.addViewController("/auth/callback").setViewName("forward:/index.html");
         registry.addViewController("/app").setViewName("forward:/index.html");
         registry.addViewController("/app/").setViewName("forward:/index.html");
-        registry.addViewController("/docs").setViewName("forward:/index.html");
-        registry.addViewController("/docs/").setViewName("forward:/index.html");
-        registry.addViewController("/docs/karbyz").setViewName("forward:/index.html");
-        registry.addViewController("/app/karbyz").setViewName("forward:/index.html");
-        registry.addViewController("/examples/karbyz").setViewName("forward:/index.html");
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/assets/**")
-                .addResourceLocations("classpath:/static/assets/");
+                .addResourceLocations("classpath:/static/assets/")
+                .setCachePeriod(3600);
 
         registry.addResourceHandler("/index.html")
-                .addResourceLocations("classpath:/static/");
+                .addResourceLocations("classpath:/static/")
+                .setCachePeriod(0);
 
-        // SPA routes
+        // SPA fallback for client routes (must not steal /api/** or /docs-static/**)
         registry.addResourceHandler(
-                        "/",
-                        "/app",
-                        "/app/",
                         "/app/**",
+                        "/login",
+                        "/auth/**",
                         "/docs",
                         "/docs/",
-                        "/docs/**",
-                        "/examples",
-                        "/examples/",
-                        "/examples/**")
+                        "/docs/**")
                 .addResourceLocations("classpath:/static/")
+                .setCachePeriod(0)
                 .resourceChain(true)
                 .addResolver(new PathResourceResolver() {
                     @Override
