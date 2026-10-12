@@ -3,7 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   api, getStoredOrgId, setGitOwner, setStoredOrgId, setStoredProjectId,
 } from '../lib/api'
-import { getAccessToken, handleAuthCallback, isAuthEnabled, loginWithKeycloak } from '../lib/auth'
+import { clearSession, getAccessToken, handleAuthCallback, isAuthEnabled, loginWithKeycloak } from '../lib/auth'
+
+function hasSession() {
+  if (isAuthEnabled()) return Boolean(getAccessToken())
+  return Boolean(getStoredOrgId())
+}
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -12,7 +17,11 @@ export default function LandingPage() {
   const authOn = isAuthEnabled()
 
   useEffect(() => {
-    if (getStoredOrgId() && (getAccessToken() || !authOn)) {
+    // Drop stale workspace left without JWT
+    if (authOn && getStoredOrgId() && !getAccessToken()) {
+      clearSession()
+    }
+    if (hasSession() && getStoredOrgId()) {
       navigate('/app', { replace: true })
     }
   }, [navigate, authOn])
@@ -91,7 +100,16 @@ export function AuthCallbackPage() {
   return (
     <div className="landing landing-hero-solo" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
       <div className="panel" style={{ maxWidth: 420 }}>
-        {error ? <div className="error">{error}</div> : <p className="muted">Вход…</p>}
+        {error ? (
+          <>
+            <div className="error">{error}</div>
+            <button className="btn primary" type="button" style={{ marginTop: 12 }} onClick={() => loginWithKeycloak()}>
+              Войти снова
+            </button>
+          </>
+        ) : (
+          <p className="muted">Вход…</p>
+        )}
       </div>
     </div>
   )
@@ -104,17 +122,23 @@ export function RequireWorkspace({ children }: { children: React.ReactNode }) {
   const authOn = isAuthEnabled()
 
   useEffect(() => {
-    if (!orgId) {
-      if (authOn && !token) navigate('/', { replace: true })
+    if (authOn && !token) {
+      clearSession()
+      navigate('/', { replace: true })
+      return
+    }
+    if (!orgId && authOn && token) {
+      // BootWorkspace below
+      return
+    }
+    if (!orgId && !authOn) {
+      navigate('/', { replace: true })
     }
   }, [orgId, token, authOn, navigate])
 
-  if (!orgId) {
-    if (authOn && token) {
-      return <BootWorkspace />
-    }
-    return null
-  }
+  if (authOn && !token) return null
+  if (!orgId && authOn && token) return <BootWorkspace />
+  if (!orgId) return null
   return <>{children}</>
 }
 

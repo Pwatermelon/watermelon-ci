@@ -1,4 +1,4 @@
-import { authHeaders, getAccessToken, isAuthEnabled } from './auth'
+import { authHeaders, clearSession, isAuthEnabled } from './auth'
 
 const ORG_KEY = 'wm.organizationId'
 const PROJECT_KEY = 'wm.projectId'
@@ -13,8 +13,12 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     },
     ...init,
   })
-  if (res.status === 401 && isAuthEnabled() && !getAccessToken()) {
-    throw new Error('Требуется вход через Keycloak')
+  if (res.status === 401 && isAuthEnabled()) {
+    clearSession()
+    if (!window.location.pathname.startsWith('/auth') && window.location.pathname !== '/') {
+      window.location.href = '/'
+    }
+    throw new Error('Сессия истекла — войдите снова')
   }
   if (!res.ok) {
     const text = await res.text()

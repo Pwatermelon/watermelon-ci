@@ -1,6 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { getStoredOrgId, setStoredOrgId, setStoredProjectId } from '../lib/api'
-import { clearTokens, getAccessToken, getUserLabel, logoutKeycloak } from '../lib/auth'
+import { clearSession, getAccessToken, getUserLabel, isAuthEnabled, logoutKeycloak } from '../lib/auth'
 
 function Mark() {
   return (
@@ -14,23 +13,20 @@ function Mark() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const orgId = getStoredOrgId()
   const token = getAccessToken()
-  const inApp = pathname.startsWith('/app') && Boolean(orgId || token)
+  const authOn = isAuthEnabled()
+  const showNav = pathname.startsWith('/app') && (authOn ? Boolean(token) : true)
   const user = getUserLabel()
 
   const logout = () => {
-    clearTokens()
-    setStoredOrgId('')
-    setStoredProjectId('')
-    localStorage.removeItem('wm.organizationId')
-    localStorage.removeItem('wm.projectId')
-    logoutKeycloak()
+    clearSession()
+    if (authOn) logoutKeycloak()
+    else navigate('/')
   }
 
   return (
     <div className="app-root">
-      {inApp ? (
+      {showNav ? (
         <header className="topnav">
           <button type="button" className="brand-btn topnav-brand" onClick={() => navigate('/app')}>
             <Mark />
@@ -49,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
       ) : null}
-      <main className={inApp ? 'topnav-main' : 'bare-main'}>{children}</main>
+      <main className={showNav ? 'topnav-main' : 'bare-main'}>{children}</main>
     </div>
   )
 }

@@ -44,6 +44,12 @@ export function clearTokens() {
   localStorage.removeItem(PROFILE_KEY)
 }
 
+export function clearSession() {
+  clearTokens()
+  localStorage.removeItem('wm.organizationId')
+  localStorage.removeItem('wm.projectId')
+}
+
 export async function loginWithKeycloak() {
   if (!AUTH_ENABLED) {
     window.location.href = '/'
