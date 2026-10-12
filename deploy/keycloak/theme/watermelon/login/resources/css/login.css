@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap');
+
+:root {
+  --wm-bg: #050f0b;
+  --wm-panel: #112419;
+  --wm-line: #274536;
+  --wm-text: #f3faf5;
+  --wm-muted: #8fb29e;
+  --wm-accent: #36d47a;
+  --wm-accent-2: #d4f06a;
+  --wm-flesh: #ff5d72;
+  --wm-radius: 16px;
+}
+
+html, body {
+  min-height: 100%;
+  margin: 0;
+  font-family: "Sora", system-ui, sans-serif;
+  color: var(--wm-text);
+  background:
+    radial-gradient(1100px 640px at 88% -8%, rgba(255, 97, 115, 0.16), transparent 58%),
+    radial-gradient(900px 520px at -10% 0%, rgba(62, 207, 122, 0.16), transparent 52%),
+    linear-gradient(165deg, #06110c 0%, #0a1811 48%, #0d1f16 100%);
+  background-attachment: fixed;
+}
+
+body.login-pf,
+.login-pf body,
+.login-pf {
+  background: transparent !important;
+}
+
+#kc-header,
+#kc-header-wrapper,
+.kc-logo-text,
+#kc-locale {
+  display: none !important;
+}
+
+.login-pf-page {
+  padding: 2rem 1rem !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.card-pf,
+.pf-c-login__main,
+#kc-form-wrapper {
+  background: rgba(17, 36, 25, 0.92) !important;
+  border: 1px solid var(--wm-line) !important;
+  border-radius: var(--wm-radius) !important;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45) !important;
+  padding: 2rem 1.75rem !important;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.login-pf-page .login-pf-header h1,
+#kc-page-title,
+.pf-c-title {
+  font-family: "Sora", sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 1.55rem !important;
+  color: var(--wm-text) !important;
+  text-align: left !important;
+}
+
+.login-pf-page .login-pf-header::before {
+  content: "Water";
+  font-family: "Sora", sans-serif;
+  font-weight: 700;
+  font-size: 1.75rem;
+  color: var(--wm-text);
+}
+
+.login-pf-page .login-pf-header::after {
+  content: "melon";
+  font-family: "Sora", sans-serif;
+  font-weight: 700;
+  font-size: 1.75rem;
+  color: var(--wm-accent);
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+label,
+.pf-c-form__label-text {
+  color: var(--wm-muted) !important;
+  font-size: 0.85rem !important;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+.pf-c-form-control {
+  background: #0b1913 !important;
+  border: 1px solid var(--wm-line) !important;
+  border-radius: 12px !important;
+  color: var(--wm-text) !important;
+  padding: 0.7rem 0.85rem !important;
+  box-shadow: none !important;
+}
+
+input:focus,
+.pf-c-form-control:focus {
+  border-color: var(--wm-accent) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(54, 212, 122, 0.2) !important;
+}
+
+#kc-login,
+input[type="submit"],
+button[type="submit"],
+.pf-c-button.pf-m-primary {
+  background: linear-gradient(120deg, var(--wm-flesh), #ff8f9a 55%, var(--wm-accent-2)) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  color: #06110c !important;
+  font-weight: 600 !important;
+  width: 100%;
+  padding: 0.75rem 1rem !important;
+  cursor: pointer;
+}
+
+a { color: var(--wm-accent) !important; }
+
+.alert-error,
+.pf-m-danger {
+  background: rgba(255, 93, 114, 0.16) !important;
+  border: 1px solid rgba(255, 93, 114, 0.35) !important;
+  color: var(--wm-text) !important;
+  border-radius: 12px !important;
+}
+
+#kc-info,
+.login-pf-signup,
+.subtitle {
+  color: var(--wm-muted) !important;
+}

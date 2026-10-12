@@ -4,7 +4,7 @@ Program     = "жыелма" Ident "::" { DeclOrStmt } "ахыр" "жыелма"
 DeclOrStmt  = VarDecl | FuncDecl | Statement .
 
 VarDecl     = Type Ident [ "<-" Expr ] .
-Type        = "сан" | "суз" | "тезма" .
+Type        = "сан" | "суз" | "тезма" | "логик" .
 
 FuncDecl    = "эшлама" Ident "(" [ Param { "," Param } ] ")" Block .
 Param       = Type Ident .

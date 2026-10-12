@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap');
+
+:root {
+  --wm-bg: #050f0b;
+  --wm-panel: #112419;
+  --wm-line: #274536;
+  --wm-text: #f3faf5;
+  --wm-muted: #8fb29e;
+  --wm-accent: #36d47a;
+  --wm-flesh: #ff5d72;
+}
+
+body {
+  font-family: "Sora", system-ui, sans-serif !important;
+  color: var(--wm-text) !important;
+  background: linear-gradient(165deg, #06110c 0%, #0a1811 48%, #0d1f16 100%) !important;
+}
+
+.pf-c-page,
+#page-content {
+  background: transparent !important;
+}
+
+.pf-c-page__header,
+#kc-header {
+  background: rgba(5, 15, 11, 0.9) !important;
+  border-bottom: 1px solid var(--wm-line) !important;
+}
+
+a { color: var(--wm-accent) !important; }

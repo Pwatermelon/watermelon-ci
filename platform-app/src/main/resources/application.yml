@@ -28,6 +28,8 @@ management:
         include: health,info,metrics
 
 watermelon:
+  auth:
+    enabled: ${WATERMELON_AUTH_ENABLED:false}
   karbyz:
     home: ${WATERMELON_KARBYZ_HOME:karbyz}
     python: ${WATERMELON_KARBYZ_PYTHON:python3}
@@ -40,6 +42,8 @@ watermelon:
     api-token: ${JENKINS_TOKEN:changeme}
     soft-fail: true
   git:
+    provider: ${GIT_PROVIDER:local}
+    local-root: ${GIT_LOCAL_ROOT:.data/repos}
     base-url: ${FORGEJO_URL:http://localhost:3000}
     token: ${FORGEJO_TOKEN:changeme}
   registry:

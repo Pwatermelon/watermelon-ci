@@ -59,6 +59,87 @@ button { appearance: none; }
 .rise-delay-2 { animation-delay: 0.16s; }
 .rise-delay-3 { animation-delay: 0.24s; }
 
+/* —— Top nav CI shell —— */
+.app-root { min-height: 100vh; display: flex; flex-direction: column; }
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem clamp(1rem, 2.5vw, 1.75rem);
+  border-bottom: 1px solid var(--line);
+  background: rgba(5, 15, 11, 0.88);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-wrap: wrap;
+}
+.topnav-brand { margin-right: 0.5rem; }
+.topnav-links {
+  display: flex;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.topnav-links a {
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+.topnav-links a:hover { color: var(--text); background: rgba(62, 207, 122, 0.1); }
+.topnav-links a.active {
+  color: var(--text);
+  background: rgba(54, 212, 122, 0.16);
+  border-color: var(--line-soft);
+}
+.topnav-right { display: flex; align-items: center; gap: 0.65rem; margin-left: auto; }
+.topnav-user { font-size: 0.78rem; }
+.topnav-main {
+  flex: 1;
+  padding: 1.25rem clamp(1rem, 2.5vw, 1.75rem) 2.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.landing-hero-solo {
+  grid-template-columns: 1fr !important;
+  max-width: 40rem;
+  margin: 0 auto;
+  min-height: calc(100vh - 80px);
+  align-items: center;
+}
+.repo-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: start;
+}
+.repo-tree { max-height: 70vh; overflow: auto; }
+.repo-file {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  color: inherit;
+  margin-bottom: 0.2rem;
+}
+.repo-file:hover { background: rgba(54, 212, 122, 0.08); }
+.repo-file.active { border-color: var(--line-soft); background: rgba(54, 212, 122, 0.14); }
+.repo-editor .ide-editor { min-height: 360px; }
+@media (max-width: 900px) {
+  .repo-layout { grid-template-columns: 1fr; }
+  .topnav-links { width: 100%; order: 3; }
+}
+
 /* —— Landing —— */
 .landing {
   min-height: 100vh;

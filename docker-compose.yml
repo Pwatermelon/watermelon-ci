@@ -89,6 +89,24 @@ services:
       - "8089:8080"
     profiles: ["full"]
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm", "--http-port=8083"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8083
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8083
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./deploy/keycloak/realm-watermelon.json:/opt/keycloak/data/import/realm-watermelon.json:ro
+      - ./deploy/keycloak/theme/watermelon:/opt/keycloak/themes/watermelon:ro
+
   watermelon-ci:
     build:
       context: .
@@ -97,6 +115,8 @@ services:
       postgres:
         condition: service_healthy
       vault:
+        condition: service_started
+      keycloak:
         condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: postgres
@@ -115,10 +135,16 @@ services:
       GITOPS_DRY_RUN: "true"
       GITOPS_REPO_PATH: /data/gitops
       ARGOCD_URL: http://argocd:8080
+      WATERMELON_AUTH_ENABLED: "true"
+      KEYCLOAK_ISSUER_URI: http://localhost:8083/realms/watermelon
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8083/realms/watermelon/protocol/openid-connect/certs
+      GIT_PROVIDER: local
+      GIT_LOCAL_ROOT: /data/repos
     ports:
       - "8088:8088"
     volumes:
       - gitops-data:/data/gitops
+      - repos-data:/data/repos
 
 volumes:
   pgdata:
@@ -127,3 +153,4 @@ volumes:
   registry-data:
   nexus-data:
   gitops-data:
+  repos-data:

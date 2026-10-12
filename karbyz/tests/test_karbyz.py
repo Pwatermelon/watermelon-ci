@@ -68,6 +68,37 @@ class KarbyzTests(unittest.TestCase):
         Interpreter(stdout=out).run(prog)
         self.assertEqual(out.getvalue().strip(), "9")
 
+    def test_logic_type(self):
+        prog = parse_source((EX / "logic_demo.kbz").read_text(encoding="utf-8"))
+        out = io.StringIO()
+        Interpreter(stdout=out).run(prog)
+        text = out.getvalue()
+        self.assertIn("ok дорес", text)
+        self.assertIn("empty is ялган by default", text)
+
+    def test_logic_input(self):
+        src = """
+жыелма t ::
+  керт (логик f)
+  чыгар (f)
+ахыр жыелма.
+"""
+        prog = parse_source(src)
+        out = io.StringIO()
+        Interpreter(stdin=io.StringIO("дорес\n"), stdout=out).run(prog)
+        self.assertEqual(out.getvalue().strip(), "дорес")
+
+    def test_logic_type_mismatch(self):
+        src = """
+жыелма t ::
+  логик f <- 1
+ахыр жыелма.
+"""
+        prog = parse_source(src)
+        with self.assertRaises(KarbyzError) as cm:
+            Interpreter(stdout=io.StringIO()).run(prog)
+        self.assertEqual(cm.exception.phase, "семантика")
+
 
 if __name__ == "__main__":
     unittest.main()

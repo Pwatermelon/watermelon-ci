@@ -20,7 +20,7 @@ public class KarbyzManifestParser {
 
     private static final Set<String> KEYWORDS = Set.of(
             "жыелма", "ахыр", "этап", "сервер", "башкар", "чыгар",
-            "сан", "суз", "тезма", "эшлама", "агар", "булса", "юкса",
+            "сан", "суз", "тезма", "логик", "эшлама", "агар", "булса", "юкса",
             "шулай", "вакыт", "очен", "да", "кадак", "кайтар", "керт",
             "дорес", "ялган", "озынлык", "яки", "хам", "тугел");
 
@@ -65,7 +65,7 @@ public class KarbyzManifestParser {
                 jobs.get("shell").getScript().add(parseCommandLine(lx, null));
             } else if (lx.peekKeyword("эшлама")) {
                 skipFunction(lx);
-            } else if (lx.peekKeyword("сан") || lx.peekKeyword("суз") || lx.peekKeyword("тезма")) {
+            } else if (lx.peekKeyword("сан") || lx.peekKeyword("суз") || lx.peekKeyword("тезма") || lx.peekKeyword("логик")) {
                 skipDeclOrAssign(lx);
             } else if (lx.peekKeyword("агар") || lx.peekKeyword("шулай") || lx.peekKeyword("очен")) {
                 skipControl(lx);
@@ -135,7 +135,7 @@ public class KarbyzManifestParser {
                 throw new ParseException("nested этап/сервер is not supported in manifesto subset");
             } else if (lx.peekKeyword("эшлама")) {
                 skipFunction(lx);
-            } else if (lx.peekKeyword("сан") || lx.peekKeyword("суз") || lx.peekKeyword("тезма")) {
+            } else if (lx.peekKeyword("сан") || lx.peekKeyword("суз") || lx.peekKeyword("тезма") || lx.peekKeyword("логик")) {
                 skipDeclOrAssign(lx);
             } else if (lx.peekKeyword("агар") || lx.peekKeyword("шулай") || lx.peekKeyword("очен")) {
                 skipControl(lx);
@@ -280,7 +280,7 @@ public class KarbyzManifestParser {
             skipFunction(lx);
             return;
         }
-        if (lx.peekKeyword("сан") || lx.peekKeyword("суз") || lx.peekKeyword("тезма")) {
+        if (lx.peekKeyword("сан") || lx.peekKeyword("суз") || lx.peekKeyword("тезма") || lx.peekKeyword("логик")) {
             skipDeclOrAssign(lx);
             return;
         }

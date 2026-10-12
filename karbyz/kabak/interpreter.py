@@ -37,6 +37,7 @@ class Env:
                         (typ == "сан" and isinstance(value, int) and not isinstance(value, bool))
                         or (typ == "суз" and isinstance(value, str))
                         or (typ == "тезма" and isinstance(value, list))
+                        or (typ == "логик" and isinstance(value, bool))
                     )
                     if not ok:
                         raise KarbyzError(
@@ -144,6 +145,19 @@ class Interpreter:
                     ) from None
             elif stmt.type_name == "суз":
                 val = line
+            elif stmt.type_name == "логик":
+                low = line.strip().lower()
+                if low in ("дорес", "1", "true"):
+                    val = True
+                elif low in ("ялган", "0", "false"):
+                    val = False
+                else:
+                    raise KarbyzError(
+                        "исполнение",
+                        0,
+                        0,
+                        f"неверный формат для типа логик: ожидалось дорес|ялган|1|0, получено {line!r}",
+                    )
             else:
                 raise KarbyzError("семантика", 0, 0, f"неизвестный тип ввода {stmt.type_name}")
             env.declare(stmt.name, stmt.type_name, val)
@@ -169,13 +183,14 @@ class Interpreter:
             raise KarbyzError("исполнение", 0, 0, f"неизвестный оператор {type(stmt)}")
 
     def default(self, typ: str) -> Any:
-        return {"сан": 0, "суз": "", "тезма": []}.get(typ, None)
+        return {"сан": 0, "суз": "", "тезма": [], "логик": False}.get(typ, None)
 
     def check_type(self, typ: str, val: Any):
         ok = (
             (typ == "сан" and isinstance(val, int) and not isinstance(val, bool))
             or (typ == "суз" and isinstance(val, str))
             or (typ == "тезма" and isinstance(val, list))
+            or (typ == "логик" and isinstance(val, bool))
         )
         if not ok:
             raise KarbyzError("семантика", 0, 0, f"тип {typ} не совместим со значением {val!r}")
@@ -193,7 +208,7 @@ class Interpreter:
 
     def stringify(self, v: Any) -> str:
         if isinstance(v, bool):
-            return "истина" if v else "ложь"
+            return "дорес" if v else "ялган"
         if isinstance(v, list):
             return "[" + ", ".join(self.stringify(x) for x in v) + "]"
         return str(v)

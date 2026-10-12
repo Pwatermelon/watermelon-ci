@@ -21,6 +21,7 @@ import io.watermelon.ci.domain.pipeline.PipelineRunRepository;
 import io.watermelon.ci.domain.pipeline.PipelineStatus;
 import io.watermelon.ci.domain.project.Project;
 import io.watermelon.ci.domain.project.ProjectRepository;
+import io.watermelon.ci.git.spi.GitHostingClient;
 import io.watermelon.ci.manifest.template.ManifestTemplates;
 import io.watermelon.ci.orchestration.config.DemoProperties;
 import io.watermelon.ci.registry.service.ArtifactCatalogService;
@@ -51,6 +52,7 @@ public class DemoBootstrapService {
     private final WorkerNodeRepository workerNodeRepository;
     private final ArtifactCatalogService artifactCatalogService;
     private final ProjectSecretService projectSecretService;
+    private final GitHostingClient gitHostingClient;
     private final Clock clock = Clock.system();
 
     private volatile UUID demoOrgId;
@@ -65,7 +67,8 @@ public class DemoBootstrapService {
             FleetClusterRepository fleetClusterRepository,
             WorkerNodeRepository workerNodeRepository,
             ArtifactCatalogService artifactCatalogService,
-            ProjectSecretService projectSecretService) {
+            ProjectSecretService projectSecretService,
+            GitHostingClient gitHostingClient) {
         this.demoProperties = demoProperties;
         this.organizationRepository = organizationRepository;
         this.projectRepository = projectRepository;
@@ -75,6 +78,7 @@ public class DemoBootstrapService {
         this.workerNodeRepository = workerNodeRepository;
         this.artifactCatalogService = artifactCatalogService;
         this.projectSecretService = projectSecretService;
+        this.gitHostingClient = gitHostingClient;
     }
 
     @PostConstruct
@@ -177,12 +181,44 @@ public class DemoBootstrapService {
             workerNodeRepository.save(node);
         }
 
+        try {
+            gitHostingClient.createRepository("watermelon-demo", "storefront", "Demo Storefront API", false);
+            gitHostingClient.writeFile(
+                    "watermelon-demo",
+                    "storefront",
+                    "watermelon-ci.kbz",
+                    ManifestTemplates.KARBYZ_STOREFRONT,
+                    "seed watermelon-ci.kbz",
+                    "main",
+                    null);
+            gitHostingClient.writeFile(
+                    "watermelon-demo",
+                    "storefront",
+                    "watermelon-ci.yml",
+                    ManifestTemplates.STOREFRONT,
+                    "seed watermelon-ci.yml",
+                    "main",
+                    null);
+            gitHostingClient.writeFile(
+                    "watermelon-demo",
+                    "storefront",
+                    "src/main/java/demo/App.java",
+                    "package demo;\n\npublic class App {\n  public static void main(String[] args) {\n    System.out.println(\"storefront\");\n  }\n}\n",
+                    "seed App.java",
+                    "main",
+                    null);
+        } catch (Exception ex) {
+            log.info("Git seed skipped: {}", ex.getMessage());
+        }
+
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("organizationId", org.getId());
         out.put("organizationSlug", org.getSlug());
         out.put("projectId", project.getId());
         out.put("projectSlug", project.getSlug());
         out.put("clusterId", cluster.getId());
+        out.put("gitOwner", "watermelon-demo");
+        out.put("gitRepo", "storefront");
         out.put("message", "Demo workspace ready");
         log.info("Demo workspace seeded: org={} project={}", org.getSlug(), project.getSlug());
         return out;

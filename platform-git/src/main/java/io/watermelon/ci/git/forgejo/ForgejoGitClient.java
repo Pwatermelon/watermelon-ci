@@ -22,6 +22,8 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "watermelon.git.provider", havingValue = "forgejo")
 public class ForgejoGitClient implements GitHostingClient {
 
     private final GitProperties properties;
@@ -117,10 +119,62 @@ public class ForgejoGitClient implements GitHostingClient {
                     .map(item -> new RemoteFile(
                             String.valueOf(item.get("path")),
                             String.valueOf(item.get("type")),
-                            item.get("size") instanceof Number n ? n.longValue() : 0L))
+                            item.get("size") instanceof Number n ? n.longValue() : 0L,
+                            String.valueOf(item.getOrDefault("sha", ""))))
                     .toList();
         } catch (RestClientException ex) {
             throw new PlatformException(ErrorCode.GIT_ERROR, "list files failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public List<RemoteRepository> listRepositories(String owner) {
+        try {
+            List<Map<String, Object>> response = restTemplate
+                    .exchange(
+                            properties.getBaseUrl() + "/api/v1/orgs/" + owner + "/repos",
+                            HttpMethod.GET,
+                            entity(null),
+                            new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                    .getBody();
+            if (response == null) {
+                return List.of();
+            }
+            return response.stream()
+                    .map(item -> mapRepo(item, owner, String.valueOf(item.getOrDefault("name", ""))))
+                    .toList();
+        } catch (RestClientException ex) {
+            throw new PlatformException(ErrorCode.GIT_ERROR, "list repositories failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public WriteResult writeFile(
+            String owner, String name, String path, String content, String message, String ref, String sha) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("content", Base64.getEncoder().encodeToString(
+                (content == null ? "" : content).getBytes(StandardCharsets.UTF_8)));
+        body.put("message", message == null || message.isBlank() ? "update " + path : message);
+        body.put("branch", ref == null || ref.isBlank() ? "main" : ref);
+        if (sha != null && !sha.isBlank()) {
+            body.put("sha", sha);
+        }
+        try {
+            Map<String, Object> response = restTemplate
+                    .exchange(
+                            properties.getBaseUrl() + "/api/v1/repos/" + owner + "/" + name + "/contents/" + path,
+                            HttpMethod.PUT,
+                            entity(body),
+                            new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .getBody();
+            String outSha = "";
+            if (response != null && response.get("content") instanceof Map<?, ?> c) {
+                Object shaVal = c.get("sha");
+                outSha = shaVal == null ? "" : String.valueOf(shaVal);
+            }
+            return new WriteResult(path, outSha, String.valueOf(body.get("message")));
+        } catch (RestClientException ex) {
+            throw new PlatformException(ErrorCode.GIT_ERROR, "write file failed: " + ex.getMessage(), ex);
         }
     }
 

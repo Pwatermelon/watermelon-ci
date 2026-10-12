@@ -21,6 +21,7 @@ KEYWORDS = {
     "сан": "TYPE_NUM",
     "суз": "TYPE_STR",
     "тезма": "TYPE_ARR",
+    "логик": "TYPE_BOOL",
     "дорес": "TRUE",
     "ялган": "FALSE",
     "агар": "IF",

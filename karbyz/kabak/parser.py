@@ -69,7 +69,7 @@ class Parser:
 
     def decl_or_stmt(self):
         k = self._cur().kind
-        if k in ("TYPE_NUM", "TYPE_STR", "TYPE_ARR"):
+        if k in ("TYPE_NUM", "TYPE_STR", "TYPE_ARR", "TYPE_BOOL"):
             return self.var_decl()
         if k == "FUNC":
             return self.func_decl()
@@ -77,9 +77,14 @@ class Parser:
 
     def type_name(self) -> str:
         t = self._cur()
-        mapping = {"TYPE_NUM": "сан", "TYPE_STR": "суз", "TYPE_ARR": "тезма"}
+        mapping = {
+            "TYPE_NUM": "сан",
+            "TYPE_STR": "суз",
+            "TYPE_ARR": "тезма",
+            "TYPE_BOOL": "логик",
+        }
         if t.kind not in mapping:
-            raise KarbyzError("синтаксис", t.line, t.col, "ожидался тип сан|суз|тезма")
+            raise KarbyzError("синтаксис", t.line, t.col, "ожидался тип сан|суз|тезма|логик")
         self._eat()
         return mapping[t.kind]
 
@@ -125,7 +130,7 @@ class Parser:
 
     def statement(self):
         k = self._cur().kind
-        if k in ("TYPE_NUM", "TYPE_STR", "TYPE_ARR"):
+        if k in ("TYPE_NUM", "TYPE_STR", "TYPE_ARR", "TYPE_BOOL"):
             return self.var_decl()
         if k == "IF":
             return self.if_stmt()
@@ -203,9 +208,9 @@ class Parser:
         then_b = self.block_until_else_or_end()
         else_b = None
         if self._match("ELSE"):
+            # юкса :: … ахыр — block() съедает свой ахыр
             else_b = self.block()
-        elif self._cur().kind == "END":
-            self._eat("END")
+        # без юкса: ахыр уже съеден в block_until_else_or_end
         return IfStmt(cond, then_b, else_b)
 
     def block_until_else_or_end(self) -> Block:
@@ -231,7 +236,7 @@ class Parser:
         self._eat("LPAREN")
         init = None
         if self._cur().kind != "FOR_MID":
-            if self._cur().kind in ("TYPE_NUM", "TYPE_STR", "TYPE_ARR"):
+            if self._cur().kind in ("TYPE_NUM", "TYPE_STR", "TYPE_ARR", "TYPE_BOOL"):
                 typ = self.type_name()
                 name = self._eat("IDENT").value
                 self._eat("ASSIGN")

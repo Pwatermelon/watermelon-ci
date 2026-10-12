@@ -5,10 +5,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "watermelon.git")
 public class GitProperties {
 
-    private String provider = "forgejo";
+    private String provider = "local";
     private String baseUrl = "http://localhost:3000";
     private String token = "changeme";
     private String webhookSecret = "watermelon-webhook";
+    private String localRoot = ".data/repos";
 
     public String getProvider() { return provider; }
     public void setProvider(String provider) { this.provider = provider; }
@@ -18,4 +19,6 @@ public class GitProperties {
     public void setToken(String token) { this.token = token; }
     public String getWebhookSecret() { return webhookSecret; }
     public void setWebhookSecret(String webhookSecret) { this.webhookSecret = webhookSecret; }
+    public String getLocalRoot() { return localRoot; }
+    public void setLocalRoot(String localRoot) { this.localRoot = localRoot; }
 }
