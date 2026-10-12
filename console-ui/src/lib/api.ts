@@ -25,9 +25,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function getStoredOrgId() { return localStorage.getItem(ORG_KEY) }
-export function setStoredOrgId(id: string) { localStorage.setItem(ORG_KEY, id) }
+export function setStoredOrgId(id: string) {
+  if (!id) localStorage.removeItem(ORG_KEY)
+  else localStorage.setItem(ORG_KEY, id)
+}
 export function getStoredProjectId() { return localStorage.getItem(PROJECT_KEY) }
-export function setStoredProjectId(id: string) { localStorage.setItem(PROJECT_KEY, id) }
+export function setStoredProjectId(id: string) {
+  if (!id) localStorage.removeItem(PROJECT_KEY)
+  else localStorage.setItem(PROJECT_KEY, id)
+}
 export function getGitOwner() { return localStorage.getItem(GIT_OWNER_KEY) || 'watermelon-demo' }
 export function setGitOwner(o: string) { localStorage.setItem(GIT_OWNER_KEY, o) }
 

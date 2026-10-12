@@ -7,6 +7,8 @@ import LandingPage, { AuthCallbackPage, RequireWorkspace } from './pages/Landing
 import PipelinesPage from './pages/PipelinesPage'
 import ReposPage, { RepoEditorPage } from './pages/ReposPage'
 import ServicesPage from './pages/ServicesPage'
+import { isAuthEnabled, loginWithKeycloak } from './lib/auth'
+import { useEffect } from 'react'
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -16,12 +18,24 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
+function LoginRedirect() {
+  useEffect(() => {
+    if (isAuthEnabled()) void loginWithKeycloak()
+  }, [])
+  if (!isAuthEnabled()) return <Navigate to="/" replace />
+  return (
+    <div className="landing" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+      <p className="muted">Переход к входу…</p>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<AppShell><LandingPage /></AppShell>} />
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/auth/callback" element={<AppShell><AuthCallbackPage /></AppShell>} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginRedirect />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/app" element={<Shell><DashboardPage /></Shell>} />
       <Route path="/app/repos" element={<Shell><ReposPage /></Shell>} />
       <Route path="/app/repos/:owner/:repo" element={<Shell><RepoEditorPage /></Shell>} />

@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  api, getStoredOrgId, getStoredProjectId, setGitOwner, setStoredOrgId, setStoredProjectId,
+  api, getStoredOrgId, setGitOwner, setStoredOrgId, setStoredProjectId,
 } from '../lib/api'
-import { handleAuthCallback, isAuthEnabled, loginWithKeycloak } from '../lib/auth'
+import { getAccessToken, handleAuthCallback, isAuthEnabled, loginWithKeycloak } from '../lib/auth'
 
 export default function LandingPage() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const authOn = isAuthEnabled()
+
+  useEffect(() => {
+    if (getStoredOrgId() && (getAccessToken() || !authOn)) {
+      navigate('/app', { replace: true })
+    }
+  }, [navigate, authOn])
 
   const enterDemo = async () => {
     setBusy(true)
@@ -26,6 +33,14 @@ export default function LandingPage() {
     }
   }
 
+  const primary = () => {
+    if (authOn) {
+      loginWithKeycloak()
+      return
+    }
+    void enterDemo()
+  }
+
   return (
     <div className="landing">
       <div className="landing-glow" aria-hidden />
@@ -34,24 +49,16 @@ export default function LandingPage() {
           <p className="brand-lockup rise">Water<span>melon</span></p>
           <h1 className="rise rise-delay-1">CI/CD консоль</h1>
           <p className="rise rise-delay-2">
-            Репозитории, пайплайны, хосты Docker и статусы сервисов — в одной панели.
+            Репозитории, пайплайны, хосты и сервисы — одна панель.
           </p>
           <div className="cta-row rise rise-delay-3">
-            {isAuthEnabled() ? (
-              <button className="btn primary" type="button" onClick={() => loginWithKeycloak()}>
-                Войти через Keycloak
-              </button>
-            ) : null}
-            <button
-              className={isAuthEnabled() ? 'btn ghost' : 'btn primary'}
-              type="button"
-              disabled={busy}
-              onClick={enterDemo}
-            >
-              {busy ? 'Загрузка…' : 'Открыть демо'}
+            <button className="btn primary" type="button" disabled={busy} onClick={primary}>
+              {busy ? 'Загрузка…' : authOn ? 'Войти' : 'Открыть демо'}
             </button>
-            <Link className="btn ghost" to="/app/docs">Спецификация Карбыз</Link>
           </div>
+          <p className="landing-aside rise rise-delay-3">
+            <Link to="/app/docs">Спецификация Карбыз 1.4</Link>
+          </p>
           {error && <div className="error" style={{ marginTop: 16 }}>{error}</div>}
         </div>
       </section>
@@ -72,28 +79,65 @@ export function AuthCallbackPage() {
     }
     handleAuthCallback(code)
       .then(async () => {
-        try {
-          const demo = await api.seedDemo()
-          setStoredOrgId(demo.organizationId)
-          setStoredProjectId(demo.projectId)
-          setGitOwner(demo.gitOwner || 'watermelon-demo')
-        } catch { /* ignore */ }
+        const demo = await api.seedDemo()
+        setStoredOrgId(demo.organizationId)
+        setStoredProjectId(demo.projectId)
+        setGitOwner(demo.gitOwner || 'watermelon-demo')
         navigate('/app', { replace: true })
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
   }, [navigate])
 
   return (
-    <div className="topnav-main">
-      <div className="panel">{error ? <div className="error">{error}</div> : 'Вход…'}</div>
+    <div className="landing landing-hero-solo" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+      <div className="panel" style={{ maxWidth: 420 }}>
+        {error ? <div className="error">{error}</div> : <p className="muted">Вход…</p>}
+      </div>
     </div>
   )
 }
 
 export function RequireWorkspace({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate()
   const orgId = getStoredOrgId()
-  if (!orgId) return <LandingPage />
+  const token = getAccessToken()
+  const authOn = isAuthEnabled()
+
+  useEffect(() => {
+    if (!orgId) {
+      if (authOn && !token) navigate('/', { replace: true })
+    }
+  }, [orgId, token, authOn, navigate])
+
+  if (!orgId) {
+    if (authOn && token) {
+      return <BootWorkspace />
+    }
+    return null
+  }
   return <>{children}</>
+}
+
+function BootWorkspace() {
+  const navigate = useNavigate()
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api.seedDemo()
+      .then((demo) => {
+        setStoredOrgId(demo.organizationId)
+        setStoredProjectId(demo.projectId)
+        setGitOwner(demo.gitOwner || 'watermelon-demo')
+        navigate('/app', { replace: true })
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+  }, [navigate])
+
+  return (
+    <div className="panel">
+      {error ? <div className="error">{error}</div> : <p className="muted">Готовим workspace…</p>}
+    </div>
+  )
 }
 
 export function useWorkspace() {

@@ -104,13 +104,25 @@ button { appearance: none; }
   gap: 1rem;
   min-width: 0;
 }
+.bare-main { flex: 1; min-width: 0; }
 .landing-hero-solo {
   grid-template-columns: 1fr !important;
-  max-width: 40rem;
+  max-width: 36rem;
   margin: 0 auto;
-  min-height: calc(100vh - 80px);
+  min-height: 100vh;
   align-items: center;
+  padding: 2rem 1.25rem;
 }
+.landing-aside {
+  margin-top: 1.1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.landing-aside a {
+  color: var(--muted);
+  border-bottom: 1px solid var(--line-soft);
+}
+.landing-aside a:hover { color: var(--text); }
 .repo-layout {
   display: grid;
   grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);

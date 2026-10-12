@@ -1,6 +1,6 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { getStoredOrgId } from '../lib/api'
-import { clearTokens, getAccessToken, getUserLabel, loginWithKeycloak, logoutKeycloak } from '../lib/auth'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { getStoredOrgId, setStoredOrgId, setStoredProjectId } from '../lib/api'
+import { clearTokens, getAccessToken, getUserLabel, logoutKeycloak } from '../lib/auth'
 
 function Mark() {
   return (
@@ -13,17 +13,28 @@ function Mark() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const orgId = getStoredOrgId()
+  const token = getAccessToken()
+  const inApp = pathname.startsWith('/app') && Boolean(orgId || token)
   const user = getUserLabel()
-  const authed = Boolean(getAccessToken()) || Boolean(orgId)
+
+  const logout = () => {
+    clearTokens()
+    setStoredOrgId('')
+    setStoredProjectId('')
+    localStorage.removeItem('wm.organizationId')
+    localStorage.removeItem('wm.projectId')
+    logoutKeycloak()
+  }
 
   return (
     <div className="app-root">
-      <header className="topnav">
-        <button type="button" className="brand-btn topnav-brand" onClick={() => navigate(authed ? '/app' : '/')}>
-          <Mark />
-        </button>
-        {authed && (
+      {inApp ? (
+        <header className="topnav">
+          <button type="button" className="brand-btn topnav-brand" onClick={() => navigate('/app')}>
+            <Mark />
+          </button>
           <nav className="topnav-links">
             <NavLink to="/app" end>Обзор</NavLink>
             <NavLink to="/app/repos">Репозитории</NavLink>
@@ -32,28 +43,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <NavLink to="/app/services">Сервисы</NavLink>
             <NavLink to="/app/docs">Документация</NavLink>
           </nav>
-        )}
-        <div className="topnav-right">
-          {authed ? (
-            <>
-              <span className="muted mono topnav-user">{user}</span>
-              <button
-                type="button"
-                className="btn ghost btn-sm"
-                onClick={() => {
-                  clearTokens()
-                  logoutKeycloak()
-                }}
-              >Выйти</button>
-            </>
-          ) : (
-            <button type="button" className="btn primary btn-sm" onClick={() => loginWithKeycloak()}>
-              Войти
-            </button>
-          )}
-        </div>
-      </header>
-      <main className="topnav-main">{children}</main>
+          <div className="topnav-right">
+            <span className="muted mono topnav-user">{user}</span>
+            <button type="button" className="btn ghost btn-sm" onClick={logout}>Выйти</button>
+          </div>
+        </header>
+      ) : null}
+      <main className={inApp ? 'topnav-main' : 'bare-main'}>{children}</main>
     </div>
   )
 }
