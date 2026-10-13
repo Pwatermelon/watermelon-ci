@@ -850,12 +850,15 @@ button { appearance: none; }
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: fixed;
 }
 .docs-table th, .docs-table td {
   text-align: left;
   padding: 0.65rem 0.4rem;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .docs-table th {
   color: var(--muted);

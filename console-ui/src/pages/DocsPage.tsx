@@ -38,6 +38,36 @@ function inline(text: string): ReactNode[] {
   return out
 }
 
+/** Split markdown table row; `|` inside `code` or escaped as `\|` is not a cell border. */
+function splitTableRow(line: string): string[] {
+  const cells: string[] = []
+  let cur = ''
+  let inCode = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '`') {
+      inCode = !inCode
+      cur += ch
+      continue
+    }
+    if (!inCode && ch === '\\' && line[i + 1] === '|') {
+      cur += '|'
+      i += 1
+      continue
+    }
+    if (!inCode && ch === '|') {
+      cells.push(cur.trim())
+      cur = ''
+      continue
+    }
+    cur += ch
+  }
+  cells.push(cur.trim())
+  if (cells[0] === '') cells.shift()
+  if (cells.length && cells[cells.length - 1] === '') cells.pop()
+  return cells
+}
+
 function parseMd(src: string): Block[] {
   const lines = src.replace(/\r\n/g, '\n').split('\n')
   const blocks: Block[] = []
@@ -68,10 +98,7 @@ function parseMd(src: string): Block[] {
     if (line.startsWith('|')) {
       const rows: string[][] = []
       while (i < lines.length && lines[i].startsWith('|')) {
-        const cells = lines[i]
-          .split('|')
-          .slice(1, -1)
-          .map((c) => c.trim())
+        const cells = splitTableRow(lines[i])
         if (!/^:?-{3,}:?$/.test(cells[0] || '')) rows.push(cells)
         i += 1
       }
@@ -231,7 +258,7 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
         <div className="topbar">
           <div>
             <h1>Спецификация Карбыз</h1>
-            <p>Документ 1.4 · тип логик, Cond, операции, РБНФ, проходы</p>
+            <p>Документ 1.4.1 · лексика, логик, Cond, операторы, РБНФ, фазы</p>
           </div>
           <div className="btn-row">
             <Link className="btn" to="/app/ide">IDE</Link>
@@ -244,7 +271,7 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
             <span className="logo">Water<span>melon</span></span>
           </Link>
           <div className="docs-top-meta">
-            <span className="badge ok">1.4</span>
+            <span className="badge ok">1.4.1</span>
             <Link className="btn ghost" to="/app/ide">IDE</Link>
             <Link className="btn ghost" to="/">На главную</Link>
           </div>
