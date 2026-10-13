@@ -4,6 +4,7 @@ import DashboardPage from './pages/DashboardPage'
 import DocsPage from './pages/DocsPage'
 import HostsPage from './pages/HostsPage'
 import LandingPage, { AuthCallbackPage, RequireWorkspace } from './pages/LandingPage'
+import KarbyzIdePage from './pages/KarbyzIdePage'
 import PipelinesPage from './pages/PipelinesPage'
 import ReposPage, { RepoEditorPage } from './pages/ReposPage'
 import ServicesPage from './pages/ServicesPage'
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/app/hosts" element={<Shell><HostsPage /></Shell>} />
       <Route path="/app/services" element={<Shell><ServicesPage /></Shell>} />
       <Route path="/app/docs" element={<DocsPage />} />
+      <Route path="/app/ide" element={<Shell><KarbyzIdePage /></Shell>} />
       <Route path="/app/*" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

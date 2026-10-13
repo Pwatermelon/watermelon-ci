@@ -22,10 +22,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="topnav-links">
           <NavLink to="/app" end>Обзор</NavLink>
           <NavLink to="/app/repos">Репозитории</NavLink>
-          <NavLink to="/app/pipelines">Пайплайны</NavLink>
-          <NavLink to="/app/hosts">Хосты</NavLink>
-          <NavLink to="/app/services">Сервисы</NavLink>
-          <NavLink to="/app/docs">Документация</NavLink>
+            <NavLink to="/app/pipelines">Пайплайны</NavLink>
+            <NavLink to="/app/ide">Карбыз IDE</NavLink>
+            <NavLink to="/app/hosts">Хосты</NavLink>
+            <NavLink to="/app/services">Сервисы</NavLink>
+            <NavLink to="/app/docs">Документация</NavLink>
         </nav>
         <div className="topnav-right">
           <span className="muted mono topnav-user">demo</span>

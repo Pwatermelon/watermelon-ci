@@ -234,7 +234,7 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
             <p>Документ 1.4 · тип логик, Cond, операции, РБНФ, проходы</p>
           </div>
           <div className="btn-row">
-            <Link className="btn" to="/app/pipelines">Песочница</Link>
+            <Link className="btn" to="/app/ide">IDE</Link>
           </div>
         </div>
       ) : (
@@ -245,7 +245,7 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
           </Link>
           <div className="docs-top-meta">
             <span className="badge ok">1.4</span>
-            <Link className="btn ghost" to="/app/pipelines">Песочница</Link>
+            <Link className="btn ghost" to="/app/ide">IDE</Link>
             <Link className="btn ghost" to="/">На главную</Link>
           </div>
         </header>
