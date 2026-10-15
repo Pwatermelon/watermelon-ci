@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, Pipeline } from '../lib/api'
 import { KARBYZ_EXAMPLES } from '../lib/karbyzExamples'
+import { KBZ_FILE_ACCEPT, readLocalTextFile } from '../lib/loadKbzFile'
 import { STOREFRONT_KARBYZ, STOREFRONT_YAML } from '../lib/storefrontGuide'
 import { useWorkspace } from './LandingPage'
 
@@ -27,14 +28,16 @@ export default function PipelinesPage() {
   const [dialect, setDialect] = useState<'karbyz' | 'yaml'>('karbyz')
   const [preview, setPreview] = useState('')
   const [exampleId, setExampleId] = useState(KARBYZ_EXAMPLES[0]?.id || 'hello')
+  const [fileName, setFileName] = useState('program.kbz')
   const [sandbox, setSandbox] = useState(KARBYZ_EXAMPLES[0]?.source || '')
   const [stdin, setStdin] = useState('')
   const [lines, setLines] = useState<TermLine[]>([
-    { kind: 'meta', text: 'Песочница Карбыз · Run / IR / Compile · выберите пример' },
+    { kind: 'meta', text: 'Песочница Карбыз · загрузите .kbz или выберите пример' },
   ])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const termRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const reload = () =>
     projectId
@@ -50,8 +53,10 @@ export default function PipelinesPage() {
     const ex = KARBYZ_EXAMPLES.find((e) => e.id === id)
     if (!ex) return
     setExampleId(id)
+    setFileName(`${id}.kbz`)
     setSandbox(ex.source)
     setStdin(ex.stdin || '')
+    if (fileRef.current) fileRef.current.value = ''
     setLines([
       { kind: 'meta', text: `${ex.title} · ${ex.summary}` },
       ...(ex.expected ? [{ kind: 'meta' as const, text: `ожидание: ${ex.expected}` }] : []),
@@ -60,9 +65,25 @@ export default function PipelinesPage() {
 
   const push = (extra: TermLine[]) => setLines((prev) => [...prev, ...extra])
 
+  const loadFile = async (file: File | null) => {
+    if (!file) return
+    setBusy(true)
+    try {
+      const text = await readLocalTextFile(file)
+      setSandbox(text)
+      setFileName(file.name)
+      setExampleId('')
+      setLines([{ kind: 'meta', text: `загружен файл · ${file.name} · ${text.length} символов` }])
+    } catch (e) {
+      push([{ kind: 'err', text: e instanceof Error ? e.message : String(e) }])
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const run = async (mode: 'run' | 'as-yaml') => {
     setBusy(true)
-    push([{ kind: 'in', text: mode === 'run' ? '$ kabak run' : '$ kabak run --as-yaml' }])
+    push([{ kind: 'in', text: mode === 'run' ? `$ kabak run ${fileName}` : `$ kabak run ${fileName} --as-yaml` }])
     try {
       const r = await api.karbyzRun(sandbox, mode, stdin || undefined)
       push([
@@ -207,6 +228,16 @@ export default function PipelinesPage() {
               ))}
             </div>
             <div className="btn-row">
+              <input
+                ref={fileRef}
+                type="file"
+                accept={KBZ_FILE_ACCEPT}
+                hidden
+                onChange={(e) => void loadFile(e.target.files?.[0] || null)}
+              />
+              <button className="btn" type="button" disabled={busy} onClick={() => fileRef.current?.click()}>
+                Загрузить .kbz
+              </button>
               <button className="btn primary" type="button" disabled={busy} onClick={() => void run('run')}>
                 {busy ? '…' : '▶ Run'}
               </button>
@@ -220,24 +251,34 @@ export default function PipelinesPage() {
               <Link className="btn ghost" to="/app/docs">Спека</Link>
             </div>
           </div>
-          {active && (
+          {active ? (
             <p className="muted" style={{ margin: 0 }}>
               <strong>{active.title}</strong> — {active.summary}
               {active.constructs?.length ? (
                 <> · <span className="mono">{active.constructs.join(' · ')}</span></>
               ) : null}
             </p>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              Файл <span className="mono">{fileName}</span>
+            </p>
           )}
           <div className="ide-layout">
             <div className="ide-editor-wrap panel">
               <div className="ide-label-row">
-                <span className="label">program.kbz</span>
+                <span className="label mono">{fileName}</span>
               </div>
               <textarea
                 className="ide-editor"
                 value={sandbox}
                 onChange={(e) => setSandbox(e.target.value)}
                 spellCheck={false}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const f = e.dataTransfer.files?.[0]
+                  if (f) void loadFile(f)
+                }}
               />
               <label className="ide-stdin">stdin (для керт)
                 <input value={stdin} onChange={(e) => setStdin(e.target.value)} placeholder="строки ввода через \\n" />

@@ -258,7 +258,7 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
         <div className="topbar">
           <div>
             <h1>Спецификация Карбыз</h1>
-            <p>Документ 1.4.1 · лексика, логик, Cond, операторы, РБНФ, фазы</p>
+            <p>Документ 1.4.2 · матрицы типов операций, логик, Cond, РБНФ</p>
           </div>
           <div className="btn-row">
             <Link className="btn" to="/app/ide">IDE</Link>
@@ -271,7 +271,7 @@ export default function DocsPage({ embedded = false }: { embedded?: boolean }) {
             <span className="logo">Water<span>melon</span></span>
           </Link>
           <div className="docs-top-meta">
-            <span className="badge ok">1.4.1</span>
+            <span className="badge ok">1.4.2</span>
             <Link className="btn ghost" to="/app/ide">IDE</Link>
             <Link className="btn ghost" to="/">На главную</Link>
           </div>
