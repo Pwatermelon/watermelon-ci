@@ -1,6 +1,7 @@
 jenkins:
-  systemMessage: "Watermelon CI managed Jenkins — plugins and jobs are controlled by the platform"
+  systemMessage: "Watermelon CI managed Jenkins — jobs are controlled by the platform"
   numExecutors: 2
+  mode: NORMAL
   securityRealm:
     local:
       allowsSignup: false
@@ -10,5 +11,10 @@ jenkins:
   authorizationStrategy:
     loggedInUsersCanDoAnything:
       allowAnonymousRead: false
+  crumbIssuer: "standard"
   remotingSecurity:
     enabled: true
+
+unclassified:
+  location:
+    url: http://localhost:8082/

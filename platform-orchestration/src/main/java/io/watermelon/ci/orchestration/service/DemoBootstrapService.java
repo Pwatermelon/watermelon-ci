@@ -7,10 +7,7 @@ import io.watermelon.ci.domain.artifact.ArtifactKind;
 import io.watermelon.ci.domain.fleet.ClusterKind;
 import io.watermelon.ci.domain.fleet.FleetCluster;
 import io.watermelon.ci.domain.fleet.FleetClusterRepository;
-import io.watermelon.ci.domain.fleet.NodeRole;
-import io.watermelon.ci.domain.fleet.NodeStatus;
 import io.watermelon.ci.domain.fleet.WorkerNode;
-import io.watermelon.ci.domain.fleet.WorkerNodeRepository;
 import io.watermelon.ci.domain.issue.Issue;
 import io.watermelon.ci.domain.issue.IssueRepository;
 import io.watermelon.ci.domain.issue.IssueStatus;
@@ -21,6 +18,7 @@ import io.watermelon.ci.domain.pipeline.PipelineRunRepository;
 import io.watermelon.ci.domain.pipeline.PipelineStatus;
 import io.watermelon.ci.domain.project.Project;
 import io.watermelon.ci.domain.project.ProjectRepository;
+import io.watermelon.ci.fleet.service.FleetAdminService;
 import io.watermelon.ci.git.spi.GitHostingClient;
 import io.watermelon.ci.manifest.template.ManifestTemplates;
 import io.watermelon.ci.orchestration.config.DemoProperties;
@@ -49,14 +47,18 @@ public class DemoBootstrapService {
     private final IssueRepository issueRepository;
     private final PipelineRunRepository pipelineRunRepository;
     private final FleetClusterRepository fleetClusterRepository;
-    private final WorkerNodeRepository workerNodeRepository;
     private final ArtifactCatalogService artifactCatalogService;
     private final ProjectSecretService projectSecretService;
     private final GitHostingClient gitHostingClient;
+    private final FleetAdminService fleetAdminService;
     private final Clock clock = Clock.system();
 
     private volatile UUID demoOrgId;
     private volatile UUID demoProjectId;
+    private volatile UUID paymentsProjectId;
+    private volatile UUID demoClusterId;
+    private volatile UUID vmANodeId;
+    private volatile UUID vmBNodeId;
 
     public DemoBootstrapService(
             DemoProperties demoProperties,
@@ -65,20 +67,20 @@ public class DemoBootstrapService {
             IssueRepository issueRepository,
             PipelineRunRepository pipelineRunRepository,
             FleetClusterRepository fleetClusterRepository,
-            WorkerNodeRepository workerNodeRepository,
             ArtifactCatalogService artifactCatalogService,
             ProjectSecretService projectSecretService,
-            GitHostingClient gitHostingClient) {
+            GitHostingClient gitHostingClient,
+            FleetAdminService fleetAdminService) {
         this.demoProperties = demoProperties;
         this.organizationRepository = organizationRepository;
         this.projectRepository = projectRepository;
         this.issueRepository = issueRepository;
         this.pipelineRunRepository = pipelineRunRepository;
         this.fleetClusterRepository = fleetClusterRepository;
-        this.workerNodeRepository = workerNodeRepository;
         this.artifactCatalogService = artifactCatalogService;
         this.projectSecretService = projectSecretService;
         this.gitHostingClient = gitHostingClient;
+        this.fleetAdminService = fleetAdminService;
     }
 
     @PostConstruct
@@ -99,62 +101,45 @@ public class DemoBootstrapService {
                         Ids.newId(), "watermelon-demo", "Watermelon Demo", clock.now())));
         demoOrgId = org.getId();
 
-        Project project = projectRepository
+        Project storefront = projectRepository
                 .findByOrganizationIdAndSlug(org.getId(), "storefront")
                 .orElseGet(() -> projectRepository.save(new Project(
                         Ids.newId(),
                         org.getId(),
                         "storefront",
-                        "Storefront API",
-                        "Готовый демо-проект: Git → Maven build → registry → Vault secrets → ArgoCD deploy. Манифесты: watermelon-ci.yml и .kbz",
+                        "Storefront",
+                        "Демо-сервис витрины: build → registry → deploy на demo-vm-a",
                         clock.now())));
-        demoProjectId = project.getId();
+        demoProjectId = storefront.getId();
 
-        if (issueRepository.findByProjectIdOrderByNumberDesc(project.getId()).isEmpty()) {
-            issueRepository.save(new Issue(
-                    Ids.newId(), project.getId(), 1, "Wire CI manifest for staging",
-                    "Use argocd runtime and Vault secrets", IssueStatus.IN_PROGRESS, clock.now()));
-            issueRepository.save(new Issue(
-                    Ids.newId(), project.getId(), 2, "Add canary deploy",
-                    "Fleet console should show rollout", IssueStatus.OPEN, clock.now()));
-        }
+        Project payments = projectRepository
+                .findByOrganizationIdAndSlug(org.getId(), "payments")
+                .orElseGet(() -> projectRepository.save(new Project(
+                        Ids.newId(),
+                        org.getId(),
+                        "payments",
+                        "Payments",
+                        "Демо-сервис платежей: build → registry → deploy на demo-vm-b",
+                        clock.now())));
+        paymentsProjectId = payments.getId();
 
-        if (pipelineRunRepository.findByProjectIdOrderByNumberDesc(project.getId()).isEmpty()) {
-            PipelineRun run = new PipelineRun(
-                    Ids.newId(),
-                    project.getId(),
-                    1,
-                    "main",
-                    "abc1234",
-                    PipelineStatus.SUCCESS,
-                    ManifestTemplates.STOREFRONT,
-                    clock.now());
-            run.markCompiled("// demo compiled jenkinsfile\npipeline { agent any; stages { stage('demo') { steps { echo 'ok' } } } }",
-                    "watermelon-demo-storefront-argocd-app");
-            run.markRunning(42);
-            run.markFinished(PipelineStatus.SUCCESS, clock.now());
-            pipelineRunRepository.save(run);
-        }
+        seedIssues(storefront);
+        seedIssues(payments);
+        seedPipeline(storefront, ManifestTemplates.STOREFRONT);
+        seedPipeline(payments, ManifestTemplates.PAYMENTS);
 
-        if (artifactCatalogService.listProjectArtifacts(project.getId()).isEmpty()) {
-            artifactCatalogService.register(
-                    project.getId(),
-                    null,
-                    ArtifactKind.DOCKER_IMAGE,
-                    "storefront",
-                    "1.0.0",
-                    "registry.local/watermelon/storefront:1.0.0",
-                    "sha256:demodigest");
-        }
+        seedArtifact(storefront, "storefront", "registry:5000/watermelon/storefront:latest");
+        seedArtifact(payments, "payments", "registry:5000/watermelon/payments:latest");
 
         try {
-            projectSecretService.upsertBulk(project.getId(), "production", Map.of(
+            projectSecretService.upsertBulk(storefront.getId(), "staging", Map.of(
                     "DATABASE_URL", "postgres://store:secret@db:5432/store",
-                    "API_TOKEN", "wm_demo_token_change_me",
-                    "REGISTRY_USER", "demo",
-                    "REGISTRY_PASSWORD", "demo-registry-pass"));
+                    "API_TOKEN", "wm_demo_token"));
+            projectSecretService.upsertBulk(payments.getId(), "staging", Map.of(
+                    "STRIPE_KEY", "sk_demo_xxx",
+                    "API_TOKEN", "wm_payments_token"));
         } catch (Exception ex) {
-            log.info("Vault unavailable during seed, secrets metadata may be partial: {}", ex.getMessage());
+            log.info("Vault unavailable during seed: {}", ex.getMessage());
         }
 
         FleetCluster cluster = fleetClusterRepository
@@ -165,68 +150,123 @@ public class DemoBootstrapService {
                         "demo-fleet",
                         "Demo Fleet",
                         ClusterKind.BARE_DOCKER,
-                        "Local demo cluster for MVP walkthrough",
+                        "Две Docker-ВМ (DinD) для демо CI/CD",
                         clock.now())));
-        if (workerNodeRepository.findByClusterIdOrderByCreatedAtAsc(cluster.getId()).isEmpty()) {
-            WorkerNode node = new WorkerNode(
-                    Ids.newId(),
-                    cluster.getId(),
-                    "worker-1",
-                    NodeRole.WORKER,
-                    NodeStatus.ONLINE,
-                    "http://127.0.0.1:2375",
-                    sha256("demo-join"),
-                    clock.now());
-            node.markOnline("demo-host", "arm64", 8, 16L * 1024 * 1024 * 1024, "0.1.0-demo", clock.now());
-            workerNodeRepository.save(node);
-        }
+        demoClusterId = cluster.getId();
 
-        try {
-            gitHostingClient.createRepository("watermelon-demo", "storefront", "Demo Storefront API", false);
-            gitHostingClient.writeFile(
-                    "watermelon-demo",
-                    "storefront",
-                    "watermelon-ci.kbz",
-                    ManifestTemplates.KARBYZ_STOREFRONT,
-                    "seed watermelon-ci.kbz",
-                    "main",
-                    null);
-            gitHostingClient.writeFile(
-                    "watermelon-demo",
-                    "storefront",
-                    "watermelon-ci.yml",
-                    ManifestTemplates.STOREFRONT,
-                    "seed watermelon-ci.yml",
-                    "main",
-                    null);
-            gitHostingClient.writeFile(
-                    "watermelon-demo",
-                    "storefront",
-                    "src/main/java/demo/App.java",
-                    "package demo;\n\npublic class App {\n  public static void main(String[] args) {\n    System.out.println(\"storefront\");\n  }\n}\n",
-                    "seed App.java",
-                    "main",
-                    null);
-        } catch (Exception ex) {
-            log.info("Git seed skipped: {}", ex.getMessage());
-        }
+        WorkerNode vmA = fleetAdminService.upsertOnlineNode(
+                cluster.getId(), "demo-vm-a", demoProperties.getVmAUrl(), "demo-vm-a", 4, 4L * 1024 * 1024 * 1024);
+        WorkerNode vmB = fleetAdminService.upsertOnlineNode(
+                cluster.getId(), "demo-vm-b", demoProperties.getVmBUrl(), "demo-vm-b", 4, 4L * 1024 * 1024 * 1024);
+        vmANodeId = vmA.getId();
+        vmBNodeId = vmB.getId();
+
+        seedGitRepo("storefront", ManifestTemplates.STOREFRONT, ManifestTemplates.KARBYZ_STOREFRONT,
+                "Storefront", "#36d47a");
+        seedGitRepo("payments", ManifestTemplates.PAYMENTS, ManifestTemplates.KARBYZ_PAYMENTS,
+                "Payments API", "#ff5d72");
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("organizationId", org.getId());
         out.put("organizationSlug", org.getSlug());
-        out.put("projectId", project.getId());
-        out.put("projectSlug", project.getSlug());
+        out.put("projectId", storefront.getId());
+        out.put("projectSlug", storefront.getSlug());
+        out.put("paymentsProjectId", payments.getId());
         out.put("clusterId", cluster.getId());
+        out.put("vmANodeId", vmA.getId());
+        out.put("vmBNodeId", vmB.getId());
         out.put("gitOwner", "watermelon-demo");
-        out.put("gitRepo", "storefront");
-        out.put("message", "Demo workspace ready");
-        log.info("Demo workspace seeded: org={} project={}", org.getSlug(), project.getSlug());
+        out.put("gitRepos", java.util.List.of("storefront", "payments"));
+        out.put("message", "Demo ready: 2 VMs, 2 repos, Karbyz+YAML pipelines");
+        log.info("Demo seeded: org={} storefront={} payments={} vms=a,b", org.getSlug(), storefront.getSlug(), payments.getSlug());
         return out;
+    }
+
+    private void seedIssues(Project project) {
+        if (!issueRepository.findByProjectIdOrderByNumberDesc(project.getId()).isEmpty()) {
+            return;
+        }
+        issueRepository.save(new Issue(
+                Ids.newId(), project.getId(), 1, "Собрать образ и запушить в registry",
+                "Пайплайн build → publish", IssueStatus.IN_PROGRESS, clock.now()));
+        issueRepository.save(new Issue(
+                Ids.newId(), project.getId(), 2, "Раскатить на demo-vm",
+                "Deploy runtime docker + host", IssueStatus.OPEN, clock.now()));
+    }
+
+    private void seedPipeline(Project project, String manifest) {
+        if (!pipelineRunRepository.findByProjectIdOrderByNumberDesc(project.getId()).isEmpty()) {
+            return;
+        }
+        PipelineRun run = new PipelineRun(
+                Ids.newId(), project.getId(), 1, "main", "seed000",
+                PipelineStatus.SUCCESS, manifest, clock.now());
+        run.markCompiled("// seed", "seed-job");
+        run.markRunning(1);
+        run.markFinished(PipelineStatus.SUCCESS, clock.now());
+        pipelineRunRepository.save(run);
+    }
+
+    private void seedArtifact(Project project, String name, String locator) {
+        if (!artifactCatalogService.listProjectArtifacts(project.getId()).isEmpty()) {
+            return;
+        }
+        artifactCatalogService.register(
+                project.getId(), null, ArtifactKind.DOCKER_IMAGE, name, "latest", locator, null);
+    }
+
+    private void seedGitRepo(String repo, String yaml, String kbz, String title, String accent) {
+        try {
+            gitHostingClient.createRepository("watermelon-demo", repo, title + " demo service", false);
+            gitHostingClient.writeFile("watermelon-demo", repo, "watermelon-ci.yml", yaml,
+                    "seed yaml", "main", null);
+            gitHostingClient.writeFile("watermelon-demo", repo, "watermelon-ci.kbz", kbz,
+                    "seed kbz", "main", null);
+            gitHostingClient.writeFile("watermelon-demo", repo, "Dockerfile",
+                    """
+                    FROM nginx:alpine
+                    COPY public/ /usr/share/nginx/html/
+                    EXPOSE 80
+                    """,
+                    "seed Dockerfile", "main", null);
+            gitHostingClient.writeFile("watermelon-demo", repo, "public/index.html",
+                    """
+                    <!doctype html>
+                    <html lang="ru"><meta charset="utf-8"/>
+                    <title>%s</title>
+                    <style>
+                      body{margin:0;min-height:100vh;display:grid;place-items:center;
+                        font-family:system-ui,sans-serif;background:#0b1913;color:#f3faf5}
+                      .card{padding:2rem 2.5rem;border:1px solid #274536;border-radius:16px;
+                        background:#112419;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+                      h1{margin:0 0 .5rem;font-size:1.6rem}
+                      p{margin:0;opacity:.75}
+                      .pill{display:inline-block;margin-top:1rem;padding:.35rem .7rem;border-radius:999px;
+                        background:%s;color:#06110c;font-weight:700;font-size:.85rem}
+                    </style>
+                    <div class="card">
+                      <h1>%s</h1>
+                      <p>Сервис раскатан через Watermelon CI → Docker VM</p>
+                      <span class="pill">healthy</span>
+                    </div>
+                    """.formatted(title, accent, title),
+                    "seed index", "main", null);
+            gitHostingClient.writeFile("watermelon-demo", repo, "README.md",
+                    "# " + title + "\n\nПайплайн: `watermelon-ci.yml` / `watermelon-ci.kbz`\n",
+                    "seed readme", "main", null);
+        } catch (Exception ex) {
+            log.info("Git seed {} skipped: {}", repo, ex.getMessage());
+        }
     }
 
     public UUID getDemoOrgId() { return demoOrgId; }
     public UUID getDemoProjectId() { return demoProjectId; }
+    public UUID getPaymentsProjectId() { return paymentsProjectId; }
+    public UUID getDemoClusterId() { return demoClusterId; }
+    public UUID getVmANodeId() { return vmANodeId; }
+    public UUID getVmBNodeId() { return vmBNodeId; }
 
+    @SuppressWarnings("unused")
     private static String sha256(String value) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

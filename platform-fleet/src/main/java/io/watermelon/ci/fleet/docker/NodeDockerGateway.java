@@ -129,6 +129,74 @@ public class NodeDockerGateway {
         }
     }
 
+    /** Pull image (best-effort), remove old container by name, create+start a new one. */
+    public ManagedContainer runOrReplace(
+            String engineUrl,
+            String name,
+            String image,
+            List<String> ports,
+            Map<String, String> labels) {
+        pullImage(engineUrl, image);
+        try {
+            remove(engineUrl, name, true);
+        } catch (PlatformException ignored) {
+            // may not exist
+        }
+        try {
+            Map<String, Object> body = new java.util.LinkedHashMap<>();
+            body.put("Image", image);
+            body.put("Labels", labels != null ? labels : Map.of());
+            Map<String, Object> exposed = new java.util.LinkedHashMap<>();
+            Map<String, Object> bindings = new java.util.LinkedHashMap<>();
+            if (ports != null) {
+                for (String p : ports) {
+                    // "8080:80" or "80"
+                    String[] parts = p.split(":");
+                    String hostPort = parts.length == 2 ? parts[0] : parts[0];
+                    String containerPort = parts.length == 2 ? parts[1] : parts[0];
+                    String key = containerPort + "/tcp";
+                    exposed.put(key, Map.of());
+                    bindings.put(key, List.of(Map.of("HostPort", hostPort)));
+                }
+            }
+            body.put("ExposedPorts", exposed);
+            body.put("HostConfig", Map.of("PortBindings", bindings));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> created = restTemplate.postForObject(
+                    engineUrl + "/containers/create?name=" + enc(name), body, Map.class);
+            if (created == null || created.get("Id") == null) {
+                throw new PlatformException(ErrorCode.RUNTIME_ERROR, "create container returned empty id");
+            }
+            String id = String.valueOf(created.get("Id"));
+            start(engineUrl, id);
+            return inspect(engineUrl, id);
+        } catch (PlatformException ex) {
+            throw ex;
+        } catch (RestClientException ex) {
+            throw new PlatformException(ErrorCode.RUNTIME_ERROR, "run container failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    public void pullImage(String engineUrl, String image) {
+        String fromImage = image;
+        String tag = "latest";
+        int colon = image.lastIndexOf(':');
+        int slash = image.lastIndexOf('/');
+        if (colon > slash && colon > 0) {
+            fromImage = image.substring(0, colon);
+            tag = image.substring(colon + 1);
+        }
+        try {
+            restTemplate.exchange(
+                    engineUrl + "/images/create?fromImage=" + enc(fromImage) + "&tag=" + enc(tag),
+                    HttpMethod.POST,
+                    HttpEntity.EMPTY,
+                    String.class);
+        } catch (RestClientException ex) {
+            // pull may stream; ignore soft failures — create will fail loudly if missing
+        }
+    }
+
     private void postAction(String engineUrl, String containerId, String action) {
         try {
             restTemplate.exchange(

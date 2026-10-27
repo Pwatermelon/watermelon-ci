@@ -218,6 +218,75 @@ public class FleetAdminService {
         }
     }
 
+    /** Deploy (pull + replace) a container onto a specific worker node's Docker Engine. */
+    public ContainerView deployToNode(
+            UUID clusterId,
+            UUID nodeId,
+            String name,
+            String image,
+            List<String> ports,
+            String environment,
+            String projectSlug,
+            String pipelineRunId,
+            boolean track) {
+        WorkerNode node = requireNode(clusterId, nodeId);
+        if (node.getEngineUrl() == null || node.getEngineUrl().isBlank()) {
+            throw new PlatformException(ErrorCode.VALIDATION_FAILED, "node has no engineUrl");
+        }
+        Map<String, String> labels = new java.util.LinkedHashMap<>();
+        if (projectSlug != null) {
+            labels.put("watermelon.ci/project", projectSlug);
+        }
+        if (environment != null) {
+            labels.put("watermelon.ci/environment", environment);
+        }
+        if (pipelineRunId != null) {
+            labels.put("watermelon.ci/pipeline-run", pipelineRunId);
+        }
+        labels.put("watermelon.ci/track", track ? "true" : "false");
+        labels.put("watermelon.ci/release", name);
+        ManagedContainer c = dockerGateway.runOrReplace(
+                node.getEngineUrl(),
+                name,
+                image,
+                ports != null ? ports : List.of(),
+                labels);
+        if (node.getStatus() != NodeStatus.ONLINE) {
+            node.markOnline(
+                    node.getHostname() != null ? node.getHostname() : node.getName(),
+                    node.getArchitecture() != null ? node.getArchitecture() : "amd64",
+                    node.getCpuCores() != null ? node.getCpuCores() : 2,
+                    node.getMemoryBytes() != null ? node.getMemoryBytes() : 2L * 1024 * 1024 * 1024,
+                    "demo-agent",
+                    clock.now());
+            nodeRepository.save(node);
+        }
+        return toContainerView(node, c);
+    }
+
+    @Transactional
+    public WorkerNode upsertOnlineNode(
+            UUID clusterId, String name, String engineUrl, String hostname, int cpu, long memoryBytes) {
+        requireCluster(clusterId);
+        return nodeRepository.findByClusterIdAndName(clusterId, name).map(n -> {
+            n.setEngineUrl(engineUrl);
+            n.markOnline(hostname, "amd64", cpu, memoryBytes, "demo-agent", clock.now());
+            return nodeRepository.save(n);
+        }).orElseGet(() -> {
+            WorkerNode node = new WorkerNode(
+                    Ids.newId(),
+                    clusterId,
+                    name,
+                    NodeRole.WORKER,
+                    NodeStatus.ONLINE,
+                    engineUrl,
+                    sha256("demo-join-" + name),
+                    clock.now());
+            node.markOnline(hostname, "amd64", cpu, memoryBytes, "demo-agent", clock.now());
+            return nodeRepository.save(node);
+        });
+    }
+
     @Transactional(readOnly = true)
     public FleetOverview overview(UUID organizationId) {
         List<FleetCluster> clusters = clusterRepository.findByOrganizationIdOrderByCreatedAtDesc(organizationId);

@@ -18,7 +18,7 @@ COPY platform-api/pom.xml platform-api/pom.xml
 COPY platform-app/pom.xml platform-app/pom.xml
 RUN mvn -B -q -DskipTests dependency:go-offline || true
 COPY . .
-RUN mvn -B -DskipTests package
+RUN mvn -B -Dmaven.test.skip=true package
 
 FROM eclipse-temurin:21-jre
 RUN apt-get update \

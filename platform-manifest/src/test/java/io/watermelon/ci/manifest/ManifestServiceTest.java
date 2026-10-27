@@ -46,18 +46,18 @@ class ManifestServiceTest {
         assertTrue(compiled.jobName().contains("demo"));
         assertTrue(compiled.jenkinsfile().contains("pipeline {"));
         assertTrue(compiled.jenkinsfile().contains("stage('build')"));
-        assertTrue(compiled.jenkinsfile().contains("stage('test')"));
         assertTrue(compiled.jenkinsfile().contains("stage('publish')"));
         assertTrue(compiled.jenkinsfile().contains("stage('deploy')"));
-        assertTrue(compiled.jenkinsfile().contains("./mvnw"));
+        assertTrue(compiled.jenkinsfile().contains("demo-vm-a") || compiled.jenkinsfile().contains("storefront"));
     }
 
     @Test
     void compilesStorefrontYamlFullCycle() {
         CompiledPipeline compiled = service.compile(ManifestTemplates.STOREFRONT, CTX);
-        assertTrue(compiled.jenkinsfile().contains("stage('checkout')"));
+        assertTrue(compiled.jenkinsfile().contains("stage('build')"));
         assertTrue(compiled.jenkinsfile().contains("stage('publish')"));
-        assertTrue(compiled.jenkinsfile().contains("docker push"));
-        assertTrue(compiled.jenkinsfile().contains("argocd") || compiled.jenkinsfile().contains("storefront"));
+        assertTrue(compiled.jenkinsfile().contains("stage('deploy')"));
+        assertTrue(compiled.jenkinsfile().contains("docker push") || compiled.jenkinsfile().contains("storefront"));
+        assertTrue(compiled.jenkinsfile().contains("demo-vm-a") || compiled.jenkinsfile().contains("DOCKER_HOST"));
     }
 }

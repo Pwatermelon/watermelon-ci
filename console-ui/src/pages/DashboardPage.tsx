@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, Cluster, Pipeline, Project } from '../lib/api'
+import { api, Cluster, Pipeline, Project, WorkerNode } from '../lib/api'
 import { useWorkspace } from './LandingPage'
 
 function badge(status: string) {
@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
   const [fleet, setFleet] = useState({ clusters: 0, onlineNodes: 0, runningContainers: 0 })
   const [clusters, setClusters] = useState<Cluster[]>([])
+  const [nodes, setNodes] = useState<WorkerNode[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -31,11 +32,15 @@ export default function DashboardPage() {
       api.fleetOverview(orgId).catch(() => ({ clusters: 0, nodes: 0, onlineNodes: 0, containers: 0, runningContainers: 0 })),
       api.listClusters(orgId).catch(() => []),
     ])
-      .then(([p, pipes, f, c]) => {
+      .then(async ([p, pipes, f, c]) => {
         setProject(p)
         setPipelines(pipes.slice(0, 8))
         setFleet(f)
         setClusters(c)
+        if (c[0]) {
+          const n = await api.listNodes(c[0].id).catch(() => [])
+          setNodes(n)
+        }
       })
       .catch((e) => setError(String(e.message || e)))
   }, [orgId, projectId])
@@ -44,16 +49,28 @@ export default function DashboardPage() {
     <>
       <div className="topbar">
         <div>
-          <h1>Обзор</h1>
-          <p>{project?.name || 'Workspace'} · пайплайны, хосты, сервисы</p>
+          <h1>Обзор демо</h1>
+          <p>{project?.name || 'Workspace'} · Git → Карбыз/YAML → Registry → Docker VM</p>
         </div>
       </div>
       {error && <div className="error">{error}</div>}
+
+      <div className="panel rise">
+        <h2>Как пользоваться</h2>
+        <ol className="demo-steps">
+          <li><Link to="/app/repos">Репозитории</Link> — storefront и payments с Dockerfile и watermelon-ci.kbz</li>
+          <li><Link to="/app/pipelines">Пайплайны</Link> — запуск сборки и раскатки на VM</li>
+          <li><Link to="/app/hosts">Хосты</Link> — demo-vm-a / demo-vm-b (DinD)</li>
+          <li><Link to="/app/services">Сервисы</Link> — статус контейнеров на этих VM</li>
+          <li><Link to="/app/registry">Registry</Link> — собранные образы и теги</li>
+        </ol>
+      </div>
+
       <div className="grid stats">
         {[
           ['Проект', project?.slug || '—'],
           ['Runs', pipelines.length],
-          ['Хосты online', fleet.onlineNodes],
+          ['VM online', fleet.onlineNodes],
           ['Контейнеры', fleet.runningContainers],
         ].map(([label, value]) => (
           <div className="stat" key={String(label)}>
@@ -62,9 +79,10 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
       <div className="grid two">
         <div className="panel">
-          <h2>Последние пайплайны</h2>
+          <h2>Пайплайны</h2>
           {pipelines.length === 0 ? (
             <div className="empty">Нет запусков. Откройте <Link to="/app/pipelines">Пайплайны</Link>.</div>
           ) : (
@@ -83,22 +101,27 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="panel">
-          <h2>Кластеры</h2>
-          {clusters.length === 0 ? (
-            <div className="empty">Нет кластеров. Добавьте хост в <Link to="/app/hosts">Хостах</Link>.</div>
+          <h2>Виртуалки</h2>
+          {nodes.length === 0 ? (
+            <div className="empty">Нет нод. Проверьте seed / <Link to="/app/hosts">Хосты</Link>.</div>
           ) : (
             <table className="table">
-              <thead><tr><th>Имя</th><th>Ноды</th><th>Контейнеры</th></tr></thead>
+              <thead><tr><th>Имя</th><th>Engine</th><th>Статус</th></tr></thead>
               <tbody>
-                {clusters.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.onlineNodes}/{c.nodeCount}</td>
-                    <td>{c.containerCount}</td>
+                {nodes.map((n) => (
+                  <tr key={n.id}>
+                    <td>{n.name}</td>
+                    <td className="mono muted">{n.engineUrl || '—'}</td>
+                    <td>{badge(n.reachable ? 'ONLINE' : n.status)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          )}
+          {clusters[0] && (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              Кластер {clusters[0].name}: {clusters[0].onlineNodes}/{clusters[0].nodeCount} online · {clusters[0].containerCount} контейнеров
+            </p>
           )}
         </div>
       </div>

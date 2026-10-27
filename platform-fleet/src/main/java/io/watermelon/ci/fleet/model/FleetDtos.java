@@ -101,4 +101,13 @@ public final class FleetDtos {
             List<ClusterView> recentClusters) {}
 
     public record NodeInfoView(UUID nodeId, Map<String, Object> dockerInfo) {}
+
+    public record DeployRequest(
+            @NotBlank String name,
+            @NotBlank String image,
+            List<String> ports,
+            String environment,
+            String projectSlug,
+            String pipelineRunId,
+            boolean track) {}
 }

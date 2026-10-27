@@ -45,8 +45,16 @@ export type Org = { id: string; slug: string; name: string }
 export type Project = { id: string; organizationId: string; slug: string; name: string; description?: string }
 export type Pipeline = {
   id: string; projectId: string; number: number; ref: string; commitSha?: string
-  status: string; jenkinsJobName?: string; createdAt: string; finishedAt?: string
+  status: string; jenkinsJobName?: string; jenkinsBuildNumber?: number
+  createdAt: string; finishedAt?: string
   compiledJenkinsfile?: string; manifestYaml?: string
+}
+export type PipelineStage = { name: string; status: string; durationMs: number }
+export type PipelineDetail = {
+  run: Pipeline
+  stages: PipelineStage[]
+  consoleText?: string
+  jenkinsUrl?: string
 }
 export type Cluster = {
   id: string; name: string; kind: string; nodeCount: number; onlineNodes: number; containerCount: number
@@ -54,6 +62,7 @@ export type Cluster = {
 export type Container = {
   nodeId: string; nodeName: string; id: string; shortId: string; name: string
   image: string; state: string; statusText?: string; projectSlug?: string; environment?: string
+  ports?: string[]
 }
 export type WorkerNode = {
   id: string; clusterId: string; name: string; role: string; status: string
@@ -78,6 +87,12 @@ export const api = {
     req<Pipeline>(`/api/v1/projects/${projectId}/pipelines`, {
       method: 'POST', body: JSON.stringify({ ref, commitSha, manifestYaml }),
     }),
+  getPipelineDetail: (projectId: string, number: number) =>
+    req<PipelineDetail>(`/api/v1/projects/${projectId}/pipelines/${number}/detail`),
+  syncPipeline: (projectId: string, number: number) =>
+    req<Pipeline>(`/api/v1/projects/${projectId}/pipelines/${number}/sync`, { method: 'POST' }),
+  restartPipeline: (projectId: string, number: number) =>
+    req<Pipeline>(`/api/v1/projects/${projectId}/pipelines/${number}/restart`, { method: 'POST' }),
   previewManifest: (projectId: string, manifestYaml: string) =>
     req<{ jenkinsfile: string }>(`/api/v1/projects/${projectId}/manifests/preview`, {
       method: 'POST', body: JSON.stringify({ manifestYaml }),
@@ -134,4 +149,44 @@ export const api = {
     req<{ ok: boolean; jobName?: string; jenkinsfile?: string; error?: string }>('/api/v1/karbyz/compile', {
       method: 'POST', body: JSON.stringify({ source }),
     }),
+  listArtifacts: (projectId: string) =>
+    req<Artifact[]>(`/api/v1/projects/${projectId}/artifacts`),
+  orgRegistry: (orgId: string) =>
+    req<OrgRegistryView>(`/api/v1/organizations/${orgId}/registry`),
+  registryCatalog: (filter = '') =>
+    req<RegistryImage[]>(`/api/v1/registry/catalog${filter ? `?filter=${encodeURIComponent(filter)}` : ''}`),
+  registryEndpoints: () =>
+    req<{ dockerPushHost: string; mavenRepositoryUrl: string }>('/api/v1/registry/endpoints'),
+  deployToNode: (clusterId: string, nodeId: string, body: {
+    name: string; image: string; ports?: string[]; environment?: string; projectSlug?: string; track?: boolean
+  }) =>
+    req<Container>(`/api/v1/fleet/clusters/${clusterId}/nodes/${nodeId}/deploy`, {
+      method: 'POST', body: JSON.stringify({ track: true, ...body }),
+    }),
+}
+
+export type Artifact = {
+  id: string; projectId: string; kind: string; name: string; version: string
+  locator: string; digest?: string; createdAt: string
+}
+export type RegistryImage = { name: string; version: string; locator: string; digest?: string; projectSlug?: string }
+export type OrgRegistryArtifact = Artifact & {
+  projectSlug: string
+  source?: 'runtime-seed' | 'recorded' | string
+}
+export type OrgRegistryRuntime = {
+  projectId: string
+  projectSlug: string
+  releaseName: string
+  imageRef: string
+  environment: string
+  status?: string
+  note?: string
+}
+export type OrgRegistryView = {
+  pushHost: string
+  catalog: RegistryImage[]
+  artifacts: OrgRegistryArtifact[]
+  runtimeOnly: OrgRegistryRuntime[]
+  projects: { id: string; slug: string; name: string }[]
 }

@@ -108,6 +108,23 @@ public class PlatformController {
         return orchestrator.getPipeline(projectId, number);
     }
 
+    @GetMapping("/projects/{projectId}/pipelines/{number}/detail")
+    public PlatformOrchestrator.PipelineDetail pipelineDetail(
+            @PathVariable UUID projectId, @PathVariable long number) {
+        return orchestrator.getPipelineDetail(projectId, number);
+    }
+
+    @PostMapping("/projects/{projectId}/pipelines/{number}/sync")
+    public PipelineRun syncPipeline(@PathVariable UUID projectId, @PathVariable long number) {
+        return orchestrator.syncPipeline(projectId, number);
+    }
+
+    @PostMapping("/projects/{projectId}/pipelines/{number}/restart")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public PipelineRun restartPipeline(@PathVariable UUID projectId, @PathVariable long number) {
+        return orchestrator.restartPipeline(projectId, number);
+    }
+
     @PostMapping("/projects/{projectId}/manifests/preview")
     public Map<String, String> preview(
             @PathVariable UUID projectId, @Valid @RequestBody PreviewManifestRequest request) {

@@ -2,16 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, Cluster, WorkerNode } from '../lib/api'
 import { useWorkspace } from './LandingPage'
 
-function badge(status: string) {
-  const s = (status || '').toLowerCase()
-  const cls = ['online', 'healthy', 'success'].some((x) => s.includes(x))
-    ? 'ok'
-    : ['drain', 'warn'].some((x) => s.includes(x))
-      ? 'warn'
-      : ['off', 'fail', 'error'].some((x) => s.includes(x))
-        ? 'danger'
-        : 'muted'
-  return <span className={`badge ${cls}`}>{status}</span>
+function badge(ok: boolean, label: string) {
+  return <span className={`badge ${ok ? 'ok' : 'danger'}`}>{label}</span>
 }
 
 export default function HostsPage() {
@@ -19,23 +11,28 @@ export default function HostsPage() {
   const [clusters, setClusters] = useState<Cluster[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [nodes, setNodes] = useState<WorkerNode[]>([])
-  const [clusterName, setClusterName] = useState('production-fleet')
-  const [nodeForm, setNodeForm] = useState({ name: 'worker-1', engineUrl: 'unix:///var/run/docker.sock' })
-  const [hint, setHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [nodeForm, setNodeForm] = useState({
+    name: 'demo-vm-c',
+    engineUrl: 'http://demo-vm-a:2375',
+  })
   const [busy, setBusy] = useState(false)
 
-  const reloadClusters = async () => {
-    const list = await api.listClusters(orgId)
-    setClusters(list)
-    if (!selected && list[0]) setSelected(list[0].id)
+  const refresh = async () => {
+    if (!orgId) return
+    setError(null)
+    try {
+      const c = await api.listClusters(orgId)
+      setClusters(c)
+      const id = selected && c.some((x) => x.id === selected) ? selected : c[0]?.id || null
+      setSelected(id)
+      if (id) setNodes(await api.listNodes(id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }
 
-  useEffect(() => {
-    if (!orgId) return
-    reloadClusters().catch((e) => setError(String(e.message || e)))
-  }, [orgId])
-
+  useEffect(() => { refresh() }, [orgId])
   useEffect(() => {
     if (!selected) return
     api.listNodes(selected).then(setNodes).catch((e) => setError(String(e.message || e)))
@@ -46,111 +43,98 @@ export default function HostsPage() {
       <div className="topbar">
         <div>
           <h1>Хосты</h1>
-          <p>Кластеры и регистрация Docker Engine узлов (remote engine URL). Не полный Swarm orchestrator.</p>
+          <p>Docker Engine на demo-VM (DinD). CI раскатывает образы через DOCKER_HOST.</p>
         </div>
+        <button type="button" className="btn ghost" onClick={refresh}>Обновить</button>
       </div>
       {error && <div className="error">{error}</div>}
+
       <div className="grid two">
         <div className="panel">
           <h2>Кластеры</h2>
           {clusters.length === 0 ? (
-            <div className="empty">Создайте кластер справа.</div>
+            <div className="empty">Нет кластеров — нажмите «Сидировать демо» на лендинге.</div>
           ) : (
             <table className="table">
-              <thead><tr><th>Имя</th><th>Kind</th><th>Ноды</th></tr></thead>
+              <thead><tr><th>Имя</th><th>Ноды</th><th>Контейнеры</th></tr></thead>
               <tbody>
                 {clusters.map((c) => (
                   <tr
                     key={c.id}
-                    style={{ cursor: 'pointer', background: selected === c.id ? 'rgba(62,207,122,0.08)' : undefined }}
-                    onClick={() => { setSelected(c.id); setHint(null) }}
+                    className={selected === c.id ? 'row-active' : undefined}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelected(c.id)}
                   >
                     <td>{c.name}</td>
-                    <td className="mono">{c.kind}</td>
                     <td>{c.onlineNodes}/{c.nodeCount}</td>
+                    <td>{c.containerCount}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          <div className="form" style={{ marginTop: 16 }}>
-            <h2>Новый кластер</h2>
-            <label>Имя<input value={clusterName} onChange={(e) => setClusterName(e.target.value)} /></label>
-            <button
-              className="btn primary"
-              type="button"
-              disabled={busy || !clusterName.trim()}
-              onClick={async () => {
-                setBusy(true); setError(null)
-                try {
-                  const c = await api.createCluster(orgId, clusterName.trim())
-                  setClusterName('')
-                  await reloadClusters()
-                  setSelected(c.id)
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : String(e))
-                } finally {
-                  setBusy(false)
-                }
-              }}
-            >Создать</button>
-          </div>
         </div>
-        <div className="panel form">
-          <h2>Добавить хост</h2>
-          {!selected ? (
-            <div className="muted">Выберите кластер.</div>
-          ) : (
-            <>
-              <label>Имя<input value={nodeForm.name} onChange={(e) => setNodeForm({ ...nodeForm, name: e.target.value })} /></label>
-              <label>Docker Engine URL
-                <input value={nodeForm.engineUrl} onChange={(e) => setNodeForm({ ...nodeForm, engineUrl: e.target.value })} />
-              </label>
-              <button
-                className="btn primary"
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true); setError(null)
-                  try {
-                    const n = await api.addNode(selected, nodeForm.name, nodeForm.engineUrl)
-                    setHint(n.installHint || `Join token: ${n.joinToken}`)
-                    setNodes(await api.listNodes(selected))
-                    await reloadClusters()
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : String(e))
-                  } finally {
-                    setBusy(false)
-                  }
-                }}
-              >Зарегистрировать</button>
-              {hint && <div className="codebox">{hint}</div>}
-            </>
-          )}
+
+        <div className="panel">
+          <h2>Добавить ноду</h2>
+          <label className="field">
+            <span>Имя</span>
+            <input value={nodeForm.name} onChange={(e) => setNodeForm({ ...nodeForm, name: e.target.value })} />
+          </label>
+          <label className="field">
+            <span>Engine URL (HTTP)</span>
+            <input
+              value={nodeForm.engineUrl}
+              onChange={(e) => setNodeForm({ ...nodeForm, engineUrl: e.target.value })}
+              placeholder="http://demo-vm-a:2375"
+            />
+          </label>
+          <p className="muted">Только TCP/HTTP Docker API. unix:///… не поддерживается.</p>
+          <button
+            type="button"
+            className="btn"
+            disabled={!selected || busy}
+            onClick={async () => {
+              if (!selected) return
+              setBusy(true); setError(null)
+              try {
+                await api.addNode(selected, nodeForm.name, nodeForm.engineUrl)
+                setNodes(await api.listNodes(selected))
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e))
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            Зарегистрировать
+          </button>
         </div>
       </div>
-      {selected && (
-        <div className="panel">
-          <h2>Узлы</h2>
-          {nodes.length === 0 ? (
-            <div className="empty">Нет зарегистрированных хостов.</div>
-          ) : (
-            <table className="table">
-              <thead><tr><th>Имя</th><th>Роль</th><th>Статус</th><th>Engine</th></tr></thead>
-              <tbody>
-                {nodes.map((n) => (
-                  <tr key={n.id}>
-                    <td>{n.name}</td>
-                    <td className="mono">{n.role}</td>
-                    <td>{badge(n.status)}</td>
-                    <td className="mono muted">{n.hostname || n.engineUrl || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+
+      <div className="panel">
+        <h2>Ноды {selected ? '' : '(выберите кластер)'}</h2>
+        {nodes.length === 0 ? (
+          <div className="empty">Нет нод в кластере.</div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr><th>Имя</th><th>Hostname</th><th>Engine</th><th>Reachable</th><th>Статус</th></tr>
+            </thead>
+            <tbody>
+              {nodes.map((n) => (
+                <tr key={n.id}>
+                  <td>{n.name}</td>
+                  <td className="mono muted">{n.hostname || '—'}</td>
+                  <td className="mono muted">{n.engineUrl || '—'}</td>
+                  <td>{badge(!!n.reachable, n.reachable ? 'yes' : 'no')}</td>
+                  <td><span className={`badge ${n.status === 'ONLINE' ? 'ok' : 'muted'}`}>{n.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </>
   )
 }

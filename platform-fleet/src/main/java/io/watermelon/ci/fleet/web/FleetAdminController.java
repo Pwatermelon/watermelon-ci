@@ -6,6 +6,7 @@ import io.watermelon.ci.fleet.model.FleetDtos.ContainerActionRequest;
 import io.watermelon.ci.fleet.model.FleetDtos.ContainerView;
 import io.watermelon.ci.fleet.model.FleetDtos.CreateClusterRequest;
 import io.watermelon.ci.fleet.model.FleetDtos.CreateNodeRequest;
+import io.watermelon.ci.fleet.model.FleetDtos.DeployRequest;
 import io.watermelon.ci.fleet.model.FleetDtos.FleetOverview;
 import io.watermelon.ci.fleet.model.FleetDtos.LogsView;
 import io.watermelon.ci.fleet.model.FleetDtos.NodeCreatedView;
@@ -151,5 +152,23 @@ public class FleetAdminController {
     public Map<String, Object> stats(
             @PathVariable UUID clusterId, @PathVariable UUID nodeId, @PathVariable String containerId) {
         return fleetAdminService.containerStats(clusterId, nodeId, containerId);
+    }
+
+    @PostMapping("/clusters/{clusterId}/nodes/{nodeId}/deploy")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ContainerView deploy(
+            @PathVariable UUID clusterId,
+            @PathVariable UUID nodeId,
+            @Valid @RequestBody DeployRequest request) {
+        return fleetAdminService.deployToNode(
+                clusterId,
+                nodeId,
+                request.name(),
+                request.image(),
+                request.ports(),
+                request.environment(),
+                request.projectSlug(),
+                request.pipelineRunId(),
+                request.track());
     }
 }

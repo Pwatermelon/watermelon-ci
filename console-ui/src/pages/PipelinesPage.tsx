@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, Pipeline } from '../lib/api'
+import { api, Pipeline, PipelineDetail, PipelineStage } from '../lib/api'
 import { KARBYZ_EXAMPLES } from '../lib/karbyzExamples'
 import { KBZ_FILE_ACCEPT, readLocalTextFile } from '../lib/loadKbzFile'
 import { STOREFRONT_KARBYZ, STOREFRONT_YAML } from '../lib/storefrontGuide'
@@ -8,14 +8,36 @@ import { useWorkspace } from './LandingPage'
 
 function badge(status: string) {
   const s = (status || '').toLowerCase()
-  const cls = ['success', 'healthy', 'running'].some((x) => s.includes(x))
+  const cls = ['success', 'healthy'].some((x) => s.includes(x))
     ? 'ok'
-    : ['queued', 'pending'].some((x) => s.includes(x))
+    : ['running', 'queued', 'pending', 'in_progress'].some((x) => s.includes(x))
       ? 'warn'
-      : ['fail', 'error'].some((x) => s.includes(x))
+      : ['fail', 'error', 'cancel'].some((x) => s.includes(x))
         ? 'danger'
         : 'muted'
   return <span className={`badge ${cls}`}>{status}</span>
+}
+
+function StageTree({ stages }: { stages: PipelineStage[] }) {
+  if (!stages.length) {
+    return <div className="empty">Стадии появятся после sync с Jenkins (или из манифеста).</div>
+  }
+  return (
+    <ul className="stage-tree">
+      {stages.map((s, i) => (
+        <li key={`${s.name}-${i}`} className={`stage-node status-${(s.status || '').toLowerCase()}`}>
+          <span className="stage-dot" />
+          <div className="stage-body">
+            <div className="stage-name">{s.name}</div>
+            <div className="stage-meta">
+              {badge(s.status)}
+              {s.durationMs > 0 ? <span className="muted mono">{(s.durationMs / 1000).toFixed(1)}s</span> : null}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 type TermLine = { kind: 'in' | 'out' | 'err' | 'meta'; text: string }
@@ -24,8 +46,10 @@ export default function PipelinesPage() {
   const { projectId } = useWorkspace()
   const [tab, setTab] = useState<'runs' | 'manifest' | 'sandbox'>('runs')
   const [pipelines, setPipelines] = useState<Pipeline[]>([])
-  const [manifest, setManifest] = useState(STOREFRONT_KARBYZ)
-  const [dialect, setDialect] = useState<'karbyz' | 'yaml'>('karbyz')
+  const [selected, setSelected] = useState<number | null>(null)
+  const [detail, setDetail] = useState<PipelineDetail | null>(null)
+  const [manifest, setManifest] = useState(STOREFRONT_YAML)
+  const [dialect, setDialect] = useState<'karbyz' | 'yaml'>('yaml')
   const [preview, setPreview] = useState('')
   const [exampleId, setExampleId] = useState(KARBYZ_EXAMPLES[0]?.id || 'hello')
   const [fileName, setFileName] = useState('program.kbz')
@@ -39,12 +63,39 @@ export default function PipelinesPage() {
   const termRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const reload = () =>
-    projectId
-      ? api.listPipelines(projectId).then(setPipelines).catch((e) => setError(String(e.message || e)))
-      : Promise.resolve()
+  const reload = async () => {
+    if (!projectId) return
+    const list = await api.listPipelines(projectId)
+    setPipelines(list)
+    return list
+  }
 
-  useEffect(() => { reload() }, [projectId])
+  const loadDetail = async (number: number) => {
+    if (!projectId) return
+    const d = await api.getPipelineDetail(projectId, number)
+    setDetail(d)
+    setSelected(number)
+  }
+
+  useEffect(() => {
+    reload().then((list) => {
+      if (list?.[0] && selected == null) void loadDetail(list[0].number)
+    }).catch((e) => setError(String(e.message || e)))
+  }, [projectId])
+
+  // auto-sync selected running pipeline
+  useEffect(() => {
+    if (!projectId || selected == null) return
+    const p = pipelines.find((x) => x.number === selected)
+    if (!p || !['RUNNING', 'QUEUED'].includes(p.status)) return
+    const t = setInterval(() => {
+      api.syncPipeline(projectId, selected)
+        .then(() => Promise.all([reload(), loadDetail(selected)]))
+        .catch(() => {})
+    }, 5000)
+    return () => clearInterval(t)
+  }, [projectId, selected, pipelines])
+
   useEffect(() => {
     termRef.current?.scrollTo({ top: termRef.current.scrollHeight })
   }, [lines])
@@ -124,8 +175,11 @@ export default function PipelinesPage() {
       <div className="topbar">
         <div>
           <h1>Пайплайны</h1>
-          <p>Запуски · манифест · песочница Карбыз (IDE)</p>
+          <p>История · дерево стадий · рестарт · логи Jenkins</p>
         </div>
+        <button type="button" className="btn ghost" disabled={busy || !projectId} onClick={() => void reload()}>
+          Обновить
+        </button>
       </div>
       <div className="tabs studio-mode-tabs">
         <button type="button" className={tab === 'runs' ? 'active' : ''} onClick={() => setTab('runs')}>Runs</button>
@@ -135,25 +189,99 @@ export default function PipelinesPage() {
       {error && <div className="error">{error}</div>}
 
       {tab === 'runs' && (
-        <div className="panel">
-          <h2>История</h2>
-          {pipelines.length === 0 ? (
-            <div className="empty">Нет запусков — вкладка «Манифест» или песочница.</div>
-          ) : (
-            <table className="table">
-              <thead><tr><th>#</th><th>Ref</th><th>Статус</th><th>Создан</th></tr></thead>
-              <tbody>
-                {pipelines.map((p) => (
-                  <tr key={p.id}>
-                    <td className="mono">{p.number}</td>
-                    <td className="mono">{p.ref}</td>
-                    <td>{badge(p.status)}</td>
-                    <td className="muted">{new Date(p.createdAt).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <div className="grid two">
+          <div className="panel">
+            <h2>История</h2>
+            {pipelines.length === 0 ? (
+              <div className="empty">Нет запусков — вкладка «Манифест» → Запустить.</div>
+            ) : (
+              <table className="table">
+                <thead><tr><th>#</th><th>Ref</th><th>Статус</th><th>Build</th></tr></thead>
+                <tbody>
+                  {pipelines.map((p) => (
+                    <tr
+                      key={p.id}
+                      className={selected === p.number ? 'row-active' : undefined}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => void loadDetail(p.number).catch((e) => setError(String(e.message || e)))}
+                    >
+                      <td className="mono">#{p.number}</td>
+                      <td className="mono">{p.ref}</td>
+                      <td>{badge(p.status)}</td>
+                      <td className="mono muted">{p.jenkinsBuildNumber ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="panel">
+            <div className="btn-row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+              <h2 style={{ margin: 0 }}>
+                {selected != null ? `Run #${selected}` : 'Выберите run'}
+              </h2>
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn ghost btn-sm"
+                  disabled={busy || selected == null || !projectId}
+                  onClick={async () => {
+                    if (!projectId || selected == null) return
+                    setBusy(true); setError(null)
+                    try {
+                      await api.syncPipeline(projectId, selected)
+                      await reload()
+                      await loadDetail(selected)
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : String(e))
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                >
+                  Sync
+                </button>
+                <button
+                  type="button"
+                  className="btn primary btn-sm"
+                  disabled={busy || selected == null || !projectId}
+                  onClick={async () => {
+                    if (!projectId || selected == null) return
+                    setBusy(true); setError(null)
+                    try {
+                      const r = await api.restartPipeline(projectId, selected)
+                      await reload()
+                      await loadDetail(r.number)
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : String(e))
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                >
+                  Перезапустить
+                </button>
+              </div>
+            </div>
+
+            {!detail ? (
+              <div className="empty">Кликните run слева.</div>
+            ) : (
+              <>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  job: <span className="mono">{detail.run.jenkinsJobName || '—'}</span>
+                  {detail.jenkinsUrl ? (
+                    <> · <a href={detail.jenkinsUrl.replace('http://jenkins:8080', 'http://localhost:8082')} target="_blank" rel="noreferrer">открыть в Jenkins</a></>
+                  ) : null}
+                </p>
+                <h3 className="stage-heading">Дерево стадий</h3>
+                <StageTree stages={detail.stages || []} />
+                <h3 className="stage-heading">Console</h3>
+                <pre className="code-block">{detail.consoleText || '(нет логов — sync после старта в Jenkins)'}</pre>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -161,8 +289,8 @@ export default function PipelinesPage() {
         <div className="grid two">
           <div className="panel form">
             <div className="btn-row">
-              <button type="button" className={`btn ${dialect === 'karbyz' ? 'primary' : ''}`} onClick={() => { setDialect('karbyz'); setManifest(STOREFRONT_KARBYZ) }}>Карбыз</button>
               <button type="button" className={`btn ${dialect === 'yaml' ? 'primary' : ''}`} onClick={() => { setDialect('yaml'); setManifest(STOREFRONT_YAML) }}>YAML</button>
+              <button type="button" className={`btn ${dialect === 'karbyz' ? 'primary' : ''}`} onClick={() => { setDialect('karbyz'); setManifest(STOREFRONT_KARBYZ) }}>Карбыз</button>
             </div>
             <label>Манифест
               <textarea value={manifest} onChange={(e) => setManifest(e.target.value)} />
@@ -191,11 +319,13 @@ export default function PipelinesPage() {
                 onClick={async () => {
                   setBusy(true); setError(null)
                   try {
-                    await api.startPipeline(projectId, 'main', manifest)
+                    const r = await api.startPipeline(projectId, 'main', manifest)
                     await reload()
                     setTab('runs')
+                    await loadDetail(r.number)
                   } catch (e) {
                     setError(e instanceof Error ? e.message : String(e))
+                    await reload().catch(() => {})
                   } finally {
                     setBusy(false)
                   }

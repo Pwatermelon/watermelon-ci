@@ -29,9 +29,13 @@ public class DockerRegistryClient implements ArtifactRegistryClient {
 
     public DockerRegistryClient(RegistryProperties properties, RestTemplateBuilder builder) {
         this.properties = properties;
-        this.restTemplate = builder
-                .basicAuthentication(properties.getDocker().getUsername(), properties.getDocker().getPassword())
-                .build();
+        String user = properties.getDocker().getUsername();
+        String pass = properties.getDocker().getPassword();
+        if (user != null && !user.isBlank()) {
+            this.restTemplate = builder.basicAuthentication(user, pass != null ? pass : "").build();
+        } else {
+            this.restTemplate = builder.build();
+        }
     }
 
     @Override
@@ -41,6 +45,11 @@ public class DockerRegistryClient implements ArtifactRegistryClient {
 
     @Override
     public List<RemoteArtifact> list(String projectKey) {
+        return listCatalog(projectKey);
+    }
+
+    /** Live registry catalog (optionally filtered). Includes tags when available. */
+    public List<RemoteArtifact> listCatalog(String filter) {
         String url = properties.getDocker().getBaseUrl() + "/v2/_catalog";
         try {
             Map<String, Object> body = restTemplate.exchange(
@@ -49,18 +58,52 @@ public class DockerRegistryClient implements ArtifactRegistryClient {
                 return List.of();
             }
             List<RemoteArtifact> result = new ArrayList<>();
+            String host = properties.getDocker().getBaseUrl()
+                    .replace("https://", "")
+                    .replace("http://", "")
+                    .replaceAll("/$", "");
             for (Object repo : repos) {
                 String name = String.valueOf(repo);
-                if (!name.contains(projectKey) && !name.startsWith(properties.getDocker().getProject() + "/")) {
+                if (filter != null && !filter.isBlank()
+                        && !name.contains(filter)
+                        && !name.startsWith(properties.getDocker().getProject() + "/")) {
                     continue;
                 }
-                result.add(new RemoteArtifact(name, "latest", properties.getDocker().pushHost() + "/" + name + ":latest", null));
+                List<String> tags = listTags(name);
+                if (tags.isEmpty()) {
+                    result.add(new RemoteArtifact(name, "latest", host + "/" + name + ":latest", null));
+                } else {
+                    for (String tag : tags) {
+                        result.add(new RemoteArtifact(name, tag, host + "/" + name + ":" + tag, null));
+                    }
+                }
             }
             return result;
         } catch (RestClientException ex) {
             log.warn("Docker registry catalog unavailable at {}: {}", url, ex.getMessage());
             return List.of();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> listTags(String repository) {
+        try {
+            Map<String, Object> body = restTemplate.exchange(
+                    properties.getDocker().getBaseUrl() + "/v2/" + repository + "/tags/list",
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}).getBody();
+            if (body != null && body.get("tags") instanceof List<?> tags) {
+                List<String> out = new ArrayList<>();
+                for (Object t : tags) {
+                    out.add(String.valueOf(t));
+                }
+                return out;
+            }
+        } catch (RestClientException ignored) {
+            // no tags yet
+        }
+        return List.of();
     }
 
     public String imageLocator(String imageName, String tag) {

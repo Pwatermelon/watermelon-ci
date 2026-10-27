@@ -36,11 +36,14 @@ watermelon:
   demo:
     enabled: true
     seed-on-startup: true
+    seed-runtime: ${DEMO_SEED_RUNTIME:true}
+    vm-a-url: ${DEMO_VM_A_URL:http://demo-vm-a:2375}
+    vm-b-url: ${DEMO_VM_B_URL:http://demo-vm-b:2375}
   jenkins:
     base-url: ${JENKINS_URL:http://localhost:8080}
     username: ${JENKINS_USER:admin}
-    api-token: ${JENKINS_TOKEN:changeme}
-    soft-fail: true
+    api-token: ${JENKINS_TOKEN:admin}
+    soft-fail: ${JENKINS_SOFT_FAIL:false}
   git:
     provider: ${GIT_PROVIDER:local}
     local-root: ${GIT_LOCAL_ROOT:.data/repos}
@@ -48,10 +51,10 @@ watermelon:
     token: ${FORGEJO_TOKEN:changeme}
   registry:
     docker:
-      base-url: ${DOCKER_REGISTRY_URL:http://localhost:5000}
+      base-url: ${DOCKER_REGISTRY_URL:http://localhost:5001}
       project: watermelon
-      username: ${DOCKER_REGISTRY_USER:admin}
-      password: ${DOCKER_REGISTRY_PASSWORD:admin}
+      username: ${DOCKER_REGISTRY_USER:}
+      password: ${DOCKER_REGISTRY_PASSWORD:}
     maven:
       repository-url: ${MAVEN_REPO_URL:http://localhost:8081/repository/maven-releases/}
       username: ${MAVEN_REPO_USER:admin}

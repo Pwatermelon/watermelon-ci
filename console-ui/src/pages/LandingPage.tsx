@@ -41,13 +41,14 @@ export default function LandingPage() {
       <section className="landing-hero landing-hero-solo">
         <div className="landing-copy">
           <p className="brand-lockup rise">Water<span>melon</span></p>
-          <h1 className="rise rise-delay-1">CI/CD консоль</h1>
+          <h1 className="rise rise-delay-1">CI/CD демо</h1>
           <p className="rise rise-delay-2">
-            Репозитории, пайплайны, хосты и сервисы — одна панель.
+            Две Docker-VM, репозитории storefront/payments, пайплайн на Карбызе,
+            registry и статусы контейнеров — в одной консоли.
           </p>
           <div className="cta-row rise rise-delay-3">
             <button className="btn primary" type="button" disabled={busy} onClick={() => void enter()}>
-              {busy ? 'Загрузка…' : 'Открыть консоль'}
+              {busy ? 'Сидируем…' : 'Открыть демо'}
             </button>
           </div>
           <p className="landing-aside rise rise-delay-3">

@@ -30,18 +30,26 @@ services:
       - forgejo-data:/data
 
   jenkins:
-    image: jenkins/jenkins:lts-jdk21
+    build:
+      context: ./deploy/docker/jenkins
+      dockerfile: Dockerfile
     privileged: true
     user: root
     environment:
-      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Djenkins.model.Jenkins.slaveAgentPort=50000"
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc.yaml
     ports:
-      - "8080:8080"
+      - "8082:8080"
       - "50000:50000"
     volumes:
       - jenkins-home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
       - ./deploy/docker/jenkins/casc.yaml:/var/jenkins_home/casc.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - registry
+      - demo-vm-a
+      - demo-vm-b
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/login >/dev/null || exit 1"]
       interval: 10s
@@ -55,10 +63,47 @@ services:
     volumes:
       - registry-data:/var/lib/registry
 
+  # Demo «виртуалки»: Docker-in-Docker, регистрируются как WorkerNode
+  demo-vm-a:
+    image: docker:27-dind
+    privileged: true
+    hostname: demo-vm-a
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    command:
+      - dockerd-entrypoint.sh
+      - --host=tcp://0.0.0.0:2375
+      - --insecure-registry=registry:5000
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      - registry
+
+  demo-vm-b:
+    image: docker:27-dind
+    privileged: true
+    hostname: demo-vm-b
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    command:
+      - dockerd-entrypoint.sh
+      - --host=tcp://0.0.0.0:2375
+      - --insecure-registry=registry:5000
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    depends_on:
+      - registry
+
   nexus:
     image: sonatype/nexus3:3.70.1
     ports:
-      - "8081:8081"
+      - "8084:8081"
     volumes:
       - nexus-data:/nexus-data
     healthcheck:
@@ -118,6 +163,14 @@ services:
         condition: service_started
       keycloak:
         condition: service_started
+      demo-vm-a:
+        condition: service_healthy
+      demo-vm-b:
+        condition: service_healthy
+      registry:
+        condition: service_started
+      jenkins:
+        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: postgres
       POSTGRES_HOST: postgres
@@ -126,10 +179,17 @@ services:
       POSTGRES_USER: watermelon
       POSTGRES_PASSWORD: watermelon
       JENKINS_URL: http://jenkins:8080
+      JENKINS_USER: admin
+      JENKINS_TOKEN: admin
       FORGEJO_URL: http://forgejo:3000
       DOCKER_REGISTRY_URL: http://registry:5000
+      DOCKER_REGISTRY_PUSH_HOST: registry:5000
       MAVEN_REPO_URL: http://nexus:8081/repository/maven-releases/
-      DOCKER_ENGINE_ENABLED: "false"
+      DOCKER_ENGINE_ENABLED: "true"
+      DOCKER_ENGINE_URL: http://demo-vm-a:2375
+      DEMO_VM_A_URL: http://demo-vm-a:2375
+      DEMO_VM_B_URL: http://demo-vm-b:2375
+      DEMO_SEED_RUNTIME: "true"
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: root
       GITOPS_DRY_RUN: "true"
@@ -142,6 +202,7 @@ services:
       KEYCLOAK_CLIENT_ID: watermelon-console
       GIT_PROVIDER: local
       GIT_LOCAL_ROOT: /data/repos
+      JENKINS_SOFT_FAIL: "false"
     ports:
       - "8088:8088"
     volumes:

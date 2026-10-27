@@ -11,6 +11,8 @@ public class DeploySpec {
     private String release;
     private String image;
     private String namespace;
+    /** Docker Engine URL of a demo/host VM, e.g. tcp://demo-vm-a:2375 or http://demo-vm-a:2375 */
+    private String host;
     private int replicas = 1;
     private List<String> ports = new ArrayList<>();
     /** Secret key names resolved from project Vault path for this environment. */
@@ -26,6 +28,8 @@ public class DeploySpec {
     public void setImage(String image) { this.image = image; }
     public String getNamespace() { return namespace; }
     public void setNamespace(String namespace) { this.namespace = namespace; }
+    public String getHost() { return host; }
+    public void setHost(String host) { this.host = host; }
     public int getReplicas() { return replicas; }
     public void setReplicas(int replicas) { this.replicas = replicas; }
     public List<String> getPorts() { return ports; }

@@ -11,40 +11,189 @@ public class ManifestTemplates {
         Map<String, String> templates = new LinkedHashMap<>();
         templates.put("storefront", STOREFRONT);
         templates.put("karbyz-storefront", KARBYZ_STOREFRONT);
+        templates.put("payments", PAYMENTS);
+        templates.put("karbyz-payments", KARBYZ_PAYMENTS);
         templates.put("java-maven", JAVA_MAVEN);
         templates.put("node-docker", NODE_DOCKER);
-        templates.put("ansible-deploy", ANSIBLE_DEPLOY);
-        templates.put("argocd-app", ARGOCD_APP);
         return templates;
     }
 
-    public static final String JAVA_MAVEN = """
-            name: java-maven
-            stages: [build, test, publish, deploy]
+    /**
+     * Build+push+deploy on demo-vm-a via DOCKER_HOST (DinD).
+     * Workspace files (Dockerfile) must exist in the Jenkins job workspace —
+     * for demo, scripts recreate a minimal app if checkout is empty.
+     */
+    public static final String STOREFRONT = """
+            name: storefront
+            variables:
+              APP: storefront
+              IMAGE: registry:5000/watermelon/storefront
+              TARGET_HOST: tcp://demo-vm-a:2375
+            stages: [build, publish, deploy]
             jobs:
               build:
                 stage: build
-                image: eclipse-temurin:21
+                image: docker:27
                 script:
-                  - ./mvnw -B -DskipTests package
-              test:
-                stage: test
-                image: eclipse-temurin:21
+                  - export DOCKER_HOST=$TARGET_HOST
+                  - |
+                    if [ ! -f Dockerfile ]; then
+                      mkdir -p public
+                      printf '%s\\n' 'FROM nginx:alpine' 'COPY public/ /usr/share/nginx/html/' 'EXPOSE 80' > Dockerfile
+                      printf '%s\\n' '<!doctype html><html><body style="font-family:system-ui;background:#0b1913;color:#f3faf5;display:grid;place-items:center;min-height:100vh"><h1>Storefront</h1></body></html>' > public/index.html
+                    fi
+                  - docker build -t $IMAGE:latest .
+              publish-image:
+                stage: publish
+                image: docker:27
+                needs: [build]
                 script:
-                  - ./mvnw -B test
+                  - export DOCKER_HOST=$TARGET_HOST
+                  - docker push $IMAGE:latest
+              deploy-vm-a:
+                stage: deploy
+                environment: staging
+                image: docker:27
+                needs: [publish-image]
+                script:
+                  - echo "Deploy storefront → demo-vm-a"
+                deploy:
+                  runtime: docker
+                  host: tcp://demo-vm-a:2375
+                  track: true
+                  release: storefront
+                  image: registry:5000/watermelon/storefront:latest
+                  ports: ["8080:80"]
+            """;
+
+    public static final String PAYMENTS = """
+            name: payments
+            variables:
+              APP: payments
+              IMAGE: registry:5000/watermelon/payments
+              TARGET_HOST: tcp://demo-vm-b:2375
+            stages: [build, publish, deploy]
+            jobs:
+              build:
+                stage: build
+                image: docker:27
+                script:
+                  - export DOCKER_HOST=$TARGET_HOST
+                  - |
+                    if [ ! -f Dockerfile ]; then
+                      mkdir -p public
+                      printf '%s\\n' 'FROM nginx:alpine' 'COPY public/ /usr/share/nginx/html/' 'EXPOSE 80' > Dockerfile
+                      printf '%s\\n' '<!doctype html><html><body style="font-family:system-ui;background:#0b1913;color:#f3faf5;display:grid;place-items:center;min-height:100vh"><h1>Payments</h1></body></html>' > public/index.html
+                    fi
+                  - docker build -t $IMAGE:latest .
+              publish-image:
+                stage: publish
+                image: docker:27
+                needs: [build]
+                script:
+                  - export DOCKER_HOST=$TARGET_HOST
+                  - docker push $IMAGE:latest
+              deploy-vm-b:
+                stage: deploy
+                environment: staging
+                image: docker:27
+                needs: [publish-image]
+                script:
+                  - echo "Deploy payments → demo-vm-b"
+                deploy:
+                  runtime: docker
+                  host: tcp://demo-vm-b:2375
+                  track: true
+                  release: payments
+                  image: registry:5000/watermelon/payments:latest
+                  ports: ["8081:80"]
+            """;
+
+    public static final String KARBYZ_STOREFRONT = """
+            жыелма storefront ::
+
+              суз app <- "storefront"
+              суз image <- "registry:5000/watermelon/storefront"
+
+              этап "build" ::
+                башкар "export DOCKER_HOST=tcp://demo-vm-a:2375"
+                башкар "docker build -t registry:5000/watermelon/storefront:latest ."
+                чыгар ("собрали образ", app)
+              ахыр
+
+              этап "publish" ::
+                башкар "export DOCKER_HOST=tcp://demo-vm-a:2375"
+                башкар "docker push registry:5000/watermelon/storefront:latest"
+                чыгар ("в registry", image)
+              ахыр
+
+              сервер "demo-vm-a" ::
+                башкар "export DOCKER_HOST=tcp://demo-vm-a:2375"
+                башкар "docker pull registry:5000/watermelon/storefront:latest"
+                башкар "docker rm -f storefront 2>/dev/null || true"
+                башкар "docker run -d --name storefront -p 8080:80 --label watermelon.ci/project=storefront --label watermelon.ci/environment=staging --label watermelon.ci/track=true registry:5000/watermelon/storefront:latest"
+              ахыр
+
+              этап "deploy" ::
+                башкар "echo deploy storefront on demo-vm-a"
+                чыгар ("раскатка", app)
+              ахыр
+
+            ахыр жыелма.
+            """;
+
+    public static final String KARBYZ_PAYMENTS = """
+            жыелма payments ::
+
+              суз app <- "payments"
+
+              этап "build" ::
+                башкар "export DOCKER_HOST=tcp://demo-vm-b:2375"
+                башкар "docker build -t registry:5000/watermelon/payments:latest ."
+              ахыр
+
+              этап "publish" ::
+                башкар "export DOCKER_HOST=tcp://demo-vm-b:2375"
+                башкар "docker push registry:5000/watermelon/payments:latest"
+              ахыр
+
+              сервер "demo-vm-b" ::
+                башкар "export DOCKER_HOST=tcp://demo-vm-b:2375"
+                башкар "docker pull registry:5000/watermelon/payments:latest"
+                башкар "docker rm -f payments 2>/dev/null || true"
+                башкар "docker run -d --name payments -p 8081:80 --label watermelon.ci/project=payments --label watermelon.ci/environment=staging --label watermelon.ci/track=true registry:5000/watermelon/payments:latest"
+              ахыр
+
+              этап "deploy" ::
+                башкар "echo deploy payments on demo-vm-b"
+                чыгар ("раскатка", app)
+              ахыр
+
+            ахыр жыелма.
+            """;
+
+    public static final String JAVA_MAVEN = """
+            name: java-maven
+            stages: [build, publish, deploy]
+            jobs:
+              build:
+                stage: build
+                image: docker:27
+                script:
+                  - docker build -t $WM_REGISTRY/demo:latest .
               deploy-staging:
                 stage: deploy
-                when: manual
                 environment: staging
                 image: docker:27
                 script:
                   - echo deploying staging
                 deploy:
                   runtime: docker
+                  host: tcp://demo-vm-a:2375
                   track: true
                   release: app-staging
-                  image: registry.local/demo:latest
-                  ports: ["8080:8080"]
+                  image: registry:5000/watermelon/demo:latest
+                  ports: ["8080:80"]
             publish:
               docker:
                 - image: demo
@@ -55,171 +204,16 @@ public class ManifestTemplates {
 
     public static final String NODE_DOCKER = """
             name: node-docker
-            stages: [build, test, publish]
+            stages: [build, publish]
             jobs:
               build:
                 stage: build
-                image: node:22
-                script:
-                  - npm ci
-                  - npm run build
-              test:
-                stage: test
-                image: node:22
-                script:
-                  - npm test
-            publish:
-              docker:
-                - image: demo
-                  tags: ["latest"]
-            """;
-
-    public static final String ANSIBLE_DEPLOY = """
-            name: ansible-deploy
-            stages: [lint, deploy]
-            jobs:
-              lint:
-                stage: lint
-                image: cytopia/ansible:latest
-                script:
-                  - ansible-lint playbook.yml
-              deploy:
-                stage: deploy
-                when: manual
-                environment: production
-                image: cytopia/ansible:latest
-                script:
-                  - ansible-playbook -i inventories/prod playbook.yml
-            """;
-
-    public static final String ARGOCD_APP = """
-            name: argocd-app
-            stages: [build, publish, deploy]
-            jobs:
-              build:
-                stage: build
-                image: eclipse-temurin:21
-                script:
-                  - ./mvnw -B -DskipTests package
-              deploy-prod:
-                stage: deploy
-                when: manual
-                environment: production
-                image: curlimages/curl:8.10.1
-                script:
-                  - echo "GitOps deploy via Watermelon → ArgoCD"
-                deploy:
-                  runtime: argocd
-                  track: true
-                  release: demo-api
-                  namespace: demo-prod
-                  replicas: 2
-                  image: registry.local/watermelon/demo:latest
-                  ports: ["8080"]
-                  secrets: ["DATABASE_URL", "API_TOKEN"]
-            publish:
-              docker:
-                - image: demo
-                  tags: ["latest"]
-            """;
-
-    /** Полный цикл Storefront: git → build → test → registry → secrets → deploy. */
-    public static final String STOREFRONT = """
-            name: storefront
-            variables:
-              APP: storefront
-              REGISTRY: registry.local/watermelon
-            stages: [checkout, build, test, publish, deploy]
-            jobs:
-              checkout:
-                stage: checkout
-                image: alpine/git:2.45.2
-                script:
-                  - git clone --branch main git@forgejo.local:watermelon-demo/storefront.git .
-                  - git rev-parse --short HEAD
-              build:
-                stage: build
-                image: eclipse-temurin:21
-                needs: [checkout]
-                script:
-                  - ./mvnw -B -DskipTests package
-              test:
-                stage: test
-                image: eclipse-temurin:21
-                needs: [build]
-                script:
-                  - ./mvnw -B test
-              publish-image:
-                stage: publish
                 image: docker:27
-                needs: [test]
                 script:
-                  - docker build -t $REGISTRY/$APP:1.0.0 -t $REGISTRY/$APP:latest .
-                  - docker push $REGISTRY/$APP:1.0.0
-                  - docker push $REGISTRY/$APP:latest
-              deploy-prod:
-                stage: deploy
-                when: manual
-                environment: production
-                image: curlimages/curl:8.10.1
-                needs: [publish-image]
-                script:
-                  - echo "GitOps sync Storefront → ArgoCD"
-                deploy:
-                  runtime: argocd
-                  track: true
-                  release: storefront
-                  namespace: storefront-prod
-                  replicas: 2
-                  image: registry.local/watermelon/storefront:1.0.0
-                  ports: ["8080"]
-                  secrets: ["DATABASE_URL", "API_TOKEN"]
+                  - docker build -t $WM_REGISTRY/demo:latest .
             publish:
               docker:
-                - image: storefront
-                  tags: ["1.0.0", "latest"]
-              maven:
-                deploy: true
-            """;
-
-    /** Тот же Storefront-пайплайн на Карбызе. */
-    public static final String KARBYZ_STOREFRONT = """
-            жыелма storefront ::
-
-              суз app <- "storefront"
-              суз registry <- "registry.local/watermelon"
-
-              этап "checkout" ::
-                башкар "git clone --branch main git@forgejo.local:watermelon-demo/storefront.git ."
-                башкар "git rev-parse --short HEAD"
-              ахыр
-
-              этап "build" ::
-                башкар "./mvnw -B -DskipTests package"
-                чыгар ("собрали", app)
-              ахыр
-
-              этап "test" ::
-                башкар "./mvnw -B test"
-              ахыр
-
-              этап "publish" ::
-                башкар "docker build -t registry.local/watermelon/storefront:1.0.0 ."
-                башкар "docker push registry.local/watermelon/storefront:1.0.0"
-                башкар "docker push registry.local/watermelon/storefront:latest"
-                чыгар ("образ в registry:", registry)
-              ахыр
-
-              сервер "prod-node" ::
-                башкар "echo inject Vault secrets DATABASE_URL API_TOKEN"
-                башкар "echo ArgoCD sync storefront-prod"
-              ахыр
-
-              этап "deploy" ::
-                башкар "echo GitOps deploy storefront"
-                чыгар ("раскатка", app)
-              ахыр
-
-            ахыр жыелма.
+                - image: demo
+                  tags: ["latest"]
             """;
 }

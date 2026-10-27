@@ -8,7 +8,7 @@ function badge(status: string) {
     ? 'ok'
     : ['deploy', 'pending', 'warn'].some((x) => s.includes(x))
       ? 'warn'
-      : ['fail', 'error', 'degrad', 'exited'].some((x) => s.includes(x))
+      : ['fail', 'error', 'degrad', 'exited', 'stopped'].some((x) => s.includes(x))
         ? 'danger'
         : 'muted'
   return <span className={`badge ${cls}`}>{status}</span>
@@ -24,7 +24,7 @@ export default function ServicesPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
+  const reload = () => {
     if (!orgId) return
     Promise.all([
       projectId ? api.listDeployments(projectId).catch(() => []) : Promise.resolve([]),
@@ -32,13 +32,20 @@ export default function ServicesPage() {
     ]).then(([d, c]) => {
       setDeployments(d)
       setClusters(c)
-      if (c[0]) setClusterId(c[0].id)
+      const id = clusterId && c.some((x) => x.id === clusterId) ? clusterId : c[0]?.id || null
+      setClusterId(id)
     }).catch((e) => setError(String(e.message || e)))
-  }, [orgId, projectId])
+  }
+
+  useEffect(() => { reload() }, [orgId, projectId])
 
   useEffect(() => {
     if (!clusterId) return
     api.listContainers(clusterId).then(setContainers).catch((e) => setError(String(e.message || e)))
+    const t = setInterval(() => {
+      api.listContainers(clusterId).then(setContainers).catch(() => {})
+    }, 8000)
+    return () => clearInterval(t)
   }, [clusterId])
 
   const act = async (c: Container, action: string) => {
@@ -59,15 +66,16 @@ export default function ServicesPage() {
       <div className="topbar">
         <div>
           <h1>Сервисы</h1>
-          <p>Статусы deployments и контейнеры на зарегистрированных хостах</p>
+          <p>Deployments и контейнеры на demo-VM</p>
         </div>
+        <button type="button" className="btn ghost" onClick={reload}>Обновить</button>
       </div>
       {error && <div className="error">{error}</div>}
 
       <div className="panel">
         <h2>Deployments</h2>
         {deployments.length === 0 ? (
-          <div className="empty">Нет отслеживаемых deployments для проекта.</div>
+          <div className="empty">Нет отслеживаемых deployments. После seed/runtime появятся storefront и payments.</div>
         ) : (
           <table className="table">
             <thead><tr><th>Release</th><th>Env</th><th>Статус</th><th>Image</th><th>Seen</th></tr></thead>
@@ -88,50 +96,43 @@ export default function ServicesPage() {
 
       <div className="panel">
         <div className="btn-row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-          <h2 style={{ margin: 0 }}>Контейнеры</h2>
-          <select
-            value={clusterId || ''}
-            onChange={(e) => setClusterId(e.target.value || null)}
-          >
+          <h2 style={{ margin: 0 }}>Контейнеры на VM</h2>
+          <select value={clusterId || ''} onChange={(e) => setClusterId(e.target.value || null)}>
             {clusters.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         {containers.length === 0 ? (
-          <div className="empty">Нет контейнеров (нужен online-хост с Docker API).</div>
+          <div className="empty">Нет контейнеров — дождитесь seed runtime или запустите пайплайн.</div>
         ) : (
           <table className="table">
-            <thead><tr><th>Имя</th><th>Image</th><th>State</th><th>Node</th><th></th></tr></thead>
+            <thead>
+              <tr><th>VM</th><th>Имя</th><th>Image</th><th>State</th><th>Project</th><th>Ports</th><th /></tr>
+            </thead>
             <tbody>
               {containers.map((c) => (
                 <tr key={`${c.nodeId}-${c.id}`}>
-                  <td>
-                    <div>{c.name}</div>
-                    <div className="mono muted">{c.shortId}</div>
-                  </td>
+                  <td>{c.nodeName}</td>
+                  <td className="mono">{c.name}</td>
                   <td className="mono muted">{c.image}</td>
                   <td>{badge(c.state)}</td>
-                  <td className="mono">{c.nodeName}</td>
+                  <td className="muted">{c.projectSlug || '—'}</td>
+                  <td className="mono muted">{(c as Container & { ports?: string[] }).ports?.join(', ') || '—'}</td>
                   <td>
                     <div className="btn-row">
-                      <button className="btn btn-sm" type="button" disabled={busy} onClick={() => act(c, 'start')}>Start</button>
-                      <button className="btn btn-sm" type="button" disabled={busy} onClick={() => act(c, 'stop')}>Stop</button>
-                      <button className="btn btn-sm" type="button" disabled={busy} onClick={() => act(c, 'restart')}>Restart</button>
+                      <button type="button" className="btn ghost btn-sm" disabled={busy} onClick={() => act(c, 'restart')}>restart</button>
+                      <button type="button" className="btn ghost btn-sm" disabled={busy} onClick={() => act(c, 'stop')}>stop</button>
                       <button
-                        className="btn btn-sm"
                         type="button"
+                        className="btn ghost btn-sm"
                         disabled={busy || !clusterId}
                         onClick={async () => {
-                          setBusy(true)
-                          try {
-                            const r = await api.containerLogs(clusterId!, c.nodeId, c.id)
-                            setLogs(`# ${c.name}\n${r.logs || '(empty)'}`)
-                          } catch (e) {
-                            setError(e instanceof Error ? e.message : String(e))
-                          } finally {
-                            setBusy(false)
-                          }
+                          if (!clusterId) return
+                          const r = await api.containerLogs(clusterId, c.nodeId, c.id)
+                          setLogs(r.logs || '(empty)')
                         }}
-                      >Logs</button>
+                      >
+                        logs
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -139,16 +140,17 @@ export default function ServicesPage() {
             </tbody>
           </table>
         )}
-        {logs && (
-          <div style={{ marginTop: 12 }}>
-            <div className="btn-row" style={{ justifyContent: 'space-between' }}>
-              <h2 style={{ margin: 0 }}>Logs</h2>
-              <button className="btn ghost" type="button" onClick={() => setLogs(null)}>Закрыть</button>
-            </div>
-            <div className="codebox">{logs}</div>
-          </div>
-        )}
       </div>
+
+      {logs != null && (
+        <div className="panel">
+          <div className="btn-row" style={{ justifyContent: 'space-between' }}>
+            <h2 style={{ margin: 0 }}>Logs</h2>
+            <button type="button" className="btn ghost btn-sm" onClick={() => setLogs(null)}>Закрыть</button>
+          </div>
+          <pre className="code-block">{logs}</pre>
+        </div>
+      )}
     </>
   )
 }

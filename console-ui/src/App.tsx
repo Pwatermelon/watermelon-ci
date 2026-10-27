@@ -7,6 +7,7 @@ import LandingPage, { AuthCallbackPage, RequireWorkspace } from './pages/Landing
 import KarbyzIdePage from './pages/KarbyzIdePage'
 import PipelinesPage from './pages/PipelinesPage'
 import ReposPage, { RepoEditorPage } from './pages/ReposPage'
+import RegistryPage from './pages/RegistryPage'
 import ServicesPage from './pages/ServicesPage'
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,8 @@ export default function App() {
       <Route path="/app/pipelines" element={<Shell><PipelinesPage /></Shell>} />
       <Route path="/app/hosts" element={<Shell><HostsPage /></Shell>} />
       <Route path="/app/services" element={<Shell><ServicesPage /></Shell>} />
-      <Route path="/app/docs" element={<DocsPage />} />
+      <Route path="/app/registry" element={<Shell><RegistryPage /></Shell>} />
+      <Route path="/app/docs" element={<Shell><DocsPage embedded /></Shell>} />
       <Route path="/app/ide" element={<Shell><KarbyzIdePage /></Shell>} />
       <Route path="/app/*" element={<Navigate to="/app" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
